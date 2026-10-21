@@ -153,7 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {isSignUp ? 'Create Quickzy Account' : 'Sign in to Quickzy'}
               </h2>
               <p className="text-xs text-neutral-400 mt-1">
-                Managed by <strong>Aelius Venture Limited</strong>
+                Fast same-day London delivery platform
               </p>
             </div>
 

@@ -312,7 +312,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <p className="text-xs text-neutral-400 mt-1">
-                  Managed and operated by <strong>Aelius Venture Limited</strong> • Authenticated: <span className="text-white font-mono">{ADMIN_AUTHORIZED_EMAIL}</span>
+                  Live Dispatch Management • Authenticated: <span className="text-white font-mono">{ADMIN_AUTHORIZED_EMAIL}</span>
                 </p>
               </div>
 
@@ -590,7 +590,7 @@ export default function AdminDashboardPage() {
       </main>
 
       <footer className="border-t border-neutral-900 py-6 text-center text-xs text-neutral-500 space-y-1 mt-10">
-        <p>© 2026 Quickzy • Managed and operated by <strong>Aelius Venture Limited</strong>.</p>
+        <p>© 2026 Quickzy • London Dispatcher & Fleet Management System.</p>
         <p className="text-[11px] text-neutral-400">Strictly Authorized Personnel Access Only: prajapatikaranc@gmail.com</p>
       </footer>
     </div>

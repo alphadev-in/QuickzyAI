@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AppProvider } from '@/context/AppContext';
 import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 import { SingleBookingForm } from '@/components/SingleBookingForm';
 import { BulkParcelBooking } from '@/components/BulkParcelBooking';
 import { OrderStatusTracking } from '@/components/OrderStatusTracking';
@@ -215,7 +216,7 @@ function MainApplicationContent() {
               </h1>
 
               <p className="text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
-                Managed and operated by <strong className="text-white">Aelius Venture Limited</strong>. Single instant booking, bulk CSV manifests with transaction guarantee, and real-time fleet dispatch across all Greater London boroughs.
+                Single instant booking, bulk CSV manifests with transaction guarantee, and real-time fleet dispatch across all Greater London boroughs.
               </p>
 
               {/* Primary Call to Action */}
@@ -471,45 +472,8 @@ function MainApplicationContent() {
         />
       )}
 
-      {/* Footer with Aelius Venture Limited Branding & Legal Links */}
-      <footer className="border-t border-neutral-900 bg-neutral-950 py-10 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-neutral-400">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-center md:text-left space-y-1">
-            <div className="flex items-center justify-center md:justify-start gap-2">
-              <span className="font-black text-white text-base">Quickzy</span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">
-                v2.5
-              </span>
-            </div>
-            <p className="text-xs text-neutral-400">
-              App managed and operated by <strong className="text-white">Aelius Venture Limited</strong>.
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              Registered in England & Wales • Pure Firebase Firestore Sync • Zero Dummy Data.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs">
-            <Link href="/privacy" className="hover:text-emerald-400 transition">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-emerald-400 transition">
-              Terms of Service
-            </Link>
-            <Link href="/signup" className="hover:text-emerald-400 transition">
-              Create Account
-            </Link>
-            <Link href="/onboarding" className="hover:text-emerald-400 transition">
-              Fleet Onboarding
-            </Link>
-            {currentUser?.email?.toLowerCase() === 'prajapatikaranc@gmail.com' && (
-              <Link href="/admin" className="text-red-400 font-semibold transition">
-                Admin Portal
-              </Link>
-            )}
-          </div>
-        </div>
-      </footer>
+      {/* Dedicated Global Footer */}
+      <Footer currentUser={currentUser} />
     </div>
   );
 }

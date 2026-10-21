@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { User, Building2, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { UserRole } from '@/types/delivery';
+import { Footer } from '@/components/Footer';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -117,7 +118,7 @@ export default function SignupPage() {
                   Create Quickzy Account
                 </h1>
                 <p className="text-xs text-neutral-400 mt-1">
-                  Managed and operated by <strong>Aelius Venture Limited</strong>
+                  Access point-to-point same-day London delivery
                 </p>
               </div>
 
@@ -245,6 +246,7 @@ export default function SignupPage() {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

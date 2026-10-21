@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Shield, FileText, ArrowLeft, Building2 } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 
 export default function PrivacyPage() {
   return (
@@ -33,7 +34,7 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-            Quickzy is owned, managed, and operated by <strong className="text-white">Aelius Venture Limited</strong>, registered in the United Kingdom.
+            Privacy Notice and Information Governance Policy for Quickzy Logistics Users.
           </p>
           <p className="text-xs text-neutral-500">Last updated: October 2026</p>
         </div>
@@ -41,10 +42,10 @@ export default function PrivacyPage() {
         <section className="space-y-4 text-xs sm:text-sm text-neutral-300 leading-relaxed">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-400" />
-            1. Company Information & Data Controller
+            1. Scope & Data Protection
           </h2>
           <p>
-            The data controller responsible for your personal information is <strong className="text-white">Aelius Venture Limited</strong> (&quot;Quickzy&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). We provide rapid on-demand courier and delivery services across Greater London for pharmacy, food, and parcel orders.
+            Quickzy (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) provides rapid on-demand courier and delivery services across Greater London for pharmacy, food, and parcel orders. We are dedicated to upholding your privacy and securing your personal information.
           </p>
 
           <h2 className="text-lg font-bold text-white pt-4">2. Information We Collect</h2>
@@ -70,11 +71,9 @@ export default function PrivacyPage() {
             Under UK GDPR, you have the right to access, rectify, or request deletion of your personal data, or to restrict its processing. To exercise these rights, please contact our data protection team at <a href="mailto:privacy@quickzy.co.uk" className="text-emerald-400 underline">privacy@quickzy.co.uk</a>.
           </p>
         </section>
-
-        <div className="pt-8 border-t border-neutral-900 text-center text-xs text-neutral-500">
-          <p>© 2026 Quickzy • App Managed and Operated by <strong>Aelius Venture Limited</strong>. All rights reserved.</p>
-        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

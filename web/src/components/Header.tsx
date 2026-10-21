@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
+import { useTheme } from '@/context/ThemeContext';
 import {
   ShoppingBag,
   Store,
@@ -18,6 +19,8 @@ import {
   X,
   ShieldCheck,
   Lock,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -36,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
 }) => {
   const { cart } = useApp();
+  const { theme, toggleTheme } = useTheme();
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -45,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 text-white">
+    <header className="sticky top-0 z-50 bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 text-white transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
@@ -63,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
                   LONDON 🇬🇧
                 </span>
               </div>
-              <p className="text-[10px] text-neutral-400 hidden sm:block">Aelius Venture Limited Logistics</p>
+              <p className="text-[10px] text-neutral-400 hidden sm:block">Same-Day London Rapid Courier</p>
             </div>
           </div>
 
@@ -137,6 +141,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Dark / Light Mode Switcher with Cookie Persistence */}
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-amber-400 transition"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4 text-cyan-400" />}
+            </button>
+
             <button
               onClick={onOpenAddressBook}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-neutral-300 border border-neutral-700/60 transition"
@@ -179,6 +193,17 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-neutral-800 bg-neutral-900/98 px-4 py-4 space-y-2 backdrop-blur-xl animate-in slide-in-from-top-2">
+          <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-xs">
+            <span className="text-neutral-400">Appearance Mode</span>
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-neutral-800 text-xs text-neutral-200"
+            >
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-cyan-400" />}
+              <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+          </div>
+
           <button
             onClick={() => handleTabClick('booking')}
             className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
@@ -189,7 +214,6 @@ export const Header: React.FC<HeaderProps> = ({
               <CalendarCheck className="w-4 h-4" />
               <span>Book Courier (Pharmacy, Food, Parcel)</span>
             </div>
-            <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded bg-black/20">Active</span>
           </button>
 
           <button
@@ -200,7 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Bulk CSV Importer (Atomic Transaction)</span>
+              <span>Bulk CSV Importer</span>
             </div>
           </button>
 

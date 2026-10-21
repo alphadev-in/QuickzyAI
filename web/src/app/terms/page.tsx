@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { FileCheck, ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Footer } from '@/components/Footer';
 
 export default function TermsPage() {
   return (
@@ -33,7 +34,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-            Quickzy is owned, managed, and operated by <strong className="text-white">Aelius Venture Limited</strong>.
+            Standard Operating Conditions and Dispatch Agreements for Quickzy Same-Day Courier Network.
           </p>
           <p className="text-xs text-neutral-500">Effective Date: October 2026</p>
         </div>
@@ -41,10 +42,10 @@ export default function TermsPage() {
         <section className="space-y-4 text-xs sm:text-sm text-neutral-300 leading-relaxed">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-400" />
-            1. Scope of Service & Company
+            1. Scope of Service & Platform
           </h2>
           <p>
-            These terms constitute a legally binding agreement between you and <strong className="text-white">Aelius Venture Limited</strong> governing your access to the Quickzy platform, websites, and same-day delivery dispatch services throughout Greater London.
+            These terms constitute a legally binding agreement governing your access to the Quickzy platform, websites, and same-day delivery dispatch services throughout Greater London.
           </p>
 
           <h2 className="text-lg font-bold text-white pt-4">2. Geographic Coverage & Postcode Validation</h2>
@@ -72,14 +73,12 @@ export default function TermsPage() {
 
           <h2 className="text-lg font-bold text-white pt-4">6. Limitation of Liability</h2>
           <p>
-            Aelius Venture Limited shall not be liable for delivery delays arising from extreme London traffic incidents, road closures, severe weather, or force majeure events. Standard transit insurance applies up to statutory limits per parcel consignment.
+            Quickzy shall not be liable for delivery delays arising from extreme London traffic incidents, road closures, severe weather, or force majeure events. Standard transit insurance applies up to statutory limits per parcel consignment.
           </p>
         </section>
-
-        <div className="pt-8 border-t border-neutral-900 text-center text-xs text-neutral-500">
-          <p>© 2026 Quickzy • App Managed and Operated by <strong>Aelius Venture Limited</strong>. All rights reserved.</p>
-        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
