@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  CLIENT
+  ADMIN
+  DRIVER
+}
+
+enum BookingType {
+  PHARMACY
+  FOOD
+  PARCEL
+}
+
+enum OrderStatus {
+  BOOKED
+  COLLECTED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum TimeSlot {
+  SAME_DAY_ASAP
+  SCHEDULED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  role         Role          @default(CUSTOMER)
+  name         String
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  companyName  String?       @map("company_name")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  addresses    Address[]
+  orders       Order[]
+  bulkImports  BulkImport[]
+
+  @@map("users")
+}
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  line1     String
+  line2     String?
+  postcode  String
+  city      String   @default("London")
+  lat       Float?
+  lng       Float?
+  label     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pickupOrders   Order[] @relation("PickupAddress")
+  dropoffOrders  Order[] @relation("DropoffAddress")
+
+  @@map("addresses")
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  userId               String      @map("user_id")
+  type                 BookingType
+  status               OrderStatus @default(BOOKED)
+  pickupAddressId      String      @map("pickup_address_id")
+  dropoffAddressId     String      @map("dropoff_address_id")
+  timeSlot             TimeSlot    @default(SAME_DAY_ASAP) @map("time_slot")
+  scheduledFor         DateTime?   @map("scheduled_for")
+  pricePence           Int         @map("price_pence")
+  isCutoffExceeded     Boolean     @default(false) @map("is_cutoff_exceeded")
+  bulkImportId         String?     @map("bulk_import_id")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  user                 User        @relation(fields: [userId], references: [id])
+  pickupAddress        Address     @relation("PickupAddress", fields: [pickupAddressId], references: [id])
+  dropoffAddress       Address     @relation("DropoffAddress", fields: [dropoffAddressId], references: [id])
+  parcel               Parcel?
+  bulkImport           BulkImport? @relation(fields: [bulkImportId], references: [id])
+
+  @@map("orders")
+}
+
+model Parcel {
+  id                  String   @id @default(uuid())
+  orderId             String   @unique @map("order_id")
+  weightKg            Float    @map("weight_kg")
+  lengthCm            Float    @map("length_cm")
+  widthCm             Float    @map("width_cm")
+  heightCm            Float    @map("height_cm")
+  contentsDescription String   @map("contents")
+  restrictedFlag      Boolean  @default(false) @map("restricted_flag")
+  restrictedCategory  String?  @map("restricted_category")
+
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("parcels")
+}
+
+model BulkImport {
+  id          String   @id @default(uuid())
+  clientId    String   @map("client_id")
+  filename    String
+  status      String   @default("completed")
+  rowCount    Int      @map("row_count")
+  errorLog    Json?    @map("error_log")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  client      User     @relation(fields: [clientId], references: [id])
+  orders      Order[]
+
+  @@map("bulk_imports")
+}

@@ -2,10 +2,35 @@
 
 import React from 'react';
 import { useApp } from '@/context/AppContext';
-import { ShoppingBag, Store, Bike, Compass, Sparkles } from 'lucide-react';
+import {
+  ShoppingBag,
+  Store,
+  Bike,
+  Compass,
+  Sparkles,
+  CalendarCheck,
+  FileSpreadsheet,
+  Activity,
+  UserCheck,
+  MapPin,
+} from 'lucide-react';
 
-export const Header: React.FC = () => {
-  const { cart, activeRole, setActiveRole, cartMerchantIds, hasColdChainInCart } = useApp();
+interface HeaderProps {
+  onOpenAuth: () => void;
+  onOpenAddressBook: () => void;
+  currentUser: { email: string; role: string; name: string } | null;
+  activeTab: 'storefront' | 'booking' | 'bulk' | 'tracking' | 'merchant' | 'driver' | 'dispatch';
+  setActiveTab: (tab: 'storefront' | 'booking' | 'bulk' | 'tracking' | 'merchant' | 'driver' | 'dispatch') => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  onOpenAuth,
+  onOpenAddressBook,
+  currentUser,
+  activeTab,
+  setActiveTab,
+}) => {
+  const { cart, hasColdChainInCart } = useApp();
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -13,7 +38,10 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
-          <div className="flex items-center space-x-3">
+          <div
+            onClick={() => setActiveTab('booking')}
+            className="flex items-center space-x-3 cursor-pointer select-none"
+          >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 font-black text-xl text-neutral-950">
               Q
             </div>
@@ -24,22 +52,58 @@ export const Header: React.FC = () => {
                   LONDON ONLY 🇬🇧
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400">London High-Street Collective & Rapid Delivery</p>
+              <p className="text-[11px] text-neutral-400">Pharmacy, Food & Parcel Rapid Courier</p>
             </div>
           </div>
 
-          {/* Interactive Role Switcher */}
-          <div className="flex items-center bg-neutral-800 p-1 rounded-xl border border-neutral-700/60 shadow-inner">
+          {/* Primary Navigation Tabs */}
+          <nav className="hidden md:flex items-center bg-neutral-950 p-1 rounded-xl border border-neutral-800">
             <button
-              onClick={() => setActiveRole('customer')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeRole === 'customer'
+              onClick={() => setActiveTab('booking')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'booking'
                   ? 'bg-emerald-500 text-neutral-950 shadow-sm'
-                  : 'text-neutral-300 hover:text-white'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <CalendarCheck className="w-3.5 h-3.5" />
+              <span>Book Courier</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('bulk')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'bulk'
+                  ? 'bg-cyan-500 text-neutral-950 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Bulk CSV</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tracking')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'tracking'
+                  ? 'bg-emerald-500 text-neutral-950 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Order Tracking</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('storefront')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'storefront'
+                  ? 'bg-emerald-500 text-neutral-950 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Customer Storefront</span>
+              <span>High-Street Stores</span>
               {totalItems > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 bg-neutral-950 text-white rounded-full text-[10px]">
                   {totalItems}
@@ -48,54 +112,41 @@ export const Header: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveRole('merchant')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeRole === 'merchant'
+              onClick={() => setActiveTab('dispatch')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'dispatch'
                   ? 'bg-emerald-500 text-neutral-950 shadow-sm'
-                  : 'text-neutral-300 hover:text-white'
-              }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Merchant Tablet (QR)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveRole('driver')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeRole === 'driver'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-sm'
-                  : 'text-neutral-300 hover:text-white'
-              }`}
-            >
-              <Bike className="w-3.5 h-3.5" />
-              <span>Driver Cockpit</span>
-            </button>
-
-            <button
-              onClick={() => setActiveRole('dispatch')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeRole === 'dispatch'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-sm'
-                  : 'text-neutral-300 hover:text-white'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
-              <span>Route Batcher</span>
+              <span>Dispatch Cockpit</span>
             </button>
-          </div>
+          </nav>
 
-          {/* Quick Metrics Badge */}
-          <div className="hidden lg:flex items-center space-x-3 text-xs">
-            {hasColdChainInCart && (
-              <span className="flex items-center space-x-1 text-cyan-400 bg-cyan-950/60 border border-cyan-800/80 px-2 py-1 rounded-md">
-                <Sparkles className="w-3 h-3 animate-pulse" />
-                <span>Cold-Chain Monitored</span>
+          {/* Right Action Buttons */}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onOpenAddressBook}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-medium text-neutral-300 border border-neutral-700/60 transition"
+            >
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Address Book</span>
+            </button>
+
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>
+                {currentUser ? (
+                  <span className="capitalize">{currentUser.name.split(' ')[0]} ({currentUser.role})</span>
+                ) : (
+                  'Sign In / Register'
+                )}
               </span>
-            )}
-            <div className="text-right">
-              <p className="text-neutral-400">Stores in Basket</p>
-              <p className="font-bold text-white">{cartMerchantIds.length} high-street merchants</p>
-            </div>
+            </button>
           </div>
         </div>
       </div>
