@@ -1,0 +1,11 @@
+# Firebase App Hosting Configuration
+# https://firebase.google.com/docs/app-hosting/configure
+
+# Root directory for App Hosting build (monorepo support)
+runConfig:
+  # Minimum and maximum instances for Cloud Run
+  minInstances: 0
+  maxInstances: 5
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
