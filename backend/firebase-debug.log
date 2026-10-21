@@ -1,0 +1,84 @@
+[debug] [2026-02-02T13:56:02.347Z] ----------------------------------------------------------------------
+[debug] [2026-02-02T13:56:02.354Z] Command:       /nix/store/ws50yvm6vzlzf7jzz6n7xh4szddrack1-nodejs-20.19.1/bin/node /nix/store/c776mhyhgykcld7p90ajrka149ifn61a-firebase-tools-14.26.0/lib/node_modules/firebase-tools/lib/bin/firebase.js deploy
+[debug] [2026-02-02T13:56:02.355Z] CLI Version:   14.26.0
+[debug] [2026-02-02T13:56:02.356Z] Platform:      linux
+[debug] [2026-02-02T13:56:02.356Z] Node Version:  v20.19.1
+[debug] [2026-02-02T13:56:02.356Z] Time:          Mon Feb 02 2026 13:56:02 GMT+0000 (Coordinated Universal Time)
+[debug] [2026-02-02T13:56:02.357Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-02T13:56:02.365Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-02-02T13:56:03.429Z] Checked if tokens are valid: false, expires at: 1769011306054
+[debug] [2026-02-02T13:56:03.430Z] Checked if tokens are valid: false, expires at: 1769011306054
+[debug] [2026-02-02T13:56:03.430Z] > refreshing access token with scopes: []
+[debug] [2026-02-02T13:56:03.433Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-02T13:56:03.434Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-02T13:56:03.581Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-02-02T13:56:03.582Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-02T13:56:03.609Z] >>> [apiv2][query] GET https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 [none]
+[debug] [2026-02-02T13:56:03.734Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-02-02T13:56:03.735Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-02-02T13:56:04.482Z] <<< [apiv2][status] GET https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 200
+[debug] [2026-02-02T13:56:04.482Z] <<< [apiv2][body] GET https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 {"workspaceId":"quickzymobile-app-08947352","name":"Quickzy_Mobile App","workspaceRedirectUrl":"firebase-quickzymobile-app-1768692414525.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev","status":"WORKSPACE_STATUS_RUNNING","lastAccessDatetime":"2026-02-02T13:24:41.170679Z","workspaceTemplate":"WORKSPACE_TEMPLATE_BLANK_WEB","owner":"karan.prajapati@aeliusventure.com","serviceAccountEmail":"msp-5412706577496490929@monospace-per-ws-sa-8.iam.gserviceaccount.com","gitRepoUrl":"https://github.com/Karanp13/Quickzy","enableNix":true,"ownerEmail":"karan.prajapati@aeliusventure.com","workstationAccessToken":"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2Nsb3VkLmdvb2dsZS5jb20vd29ya3N0YXRpb25zIiwiYXVkIjoiZmlyZWJhc2UtcXVpY2t6eW1vYmlsZS1hcHAtMTc2ODY5MjQxNDUyNS5jbHVzdGVyLTY0cGpuc2ttbGJheG93aDVsenE2aTd2NHJhLmNsb3Vkd29ya3N0YXRpb25zLmRldiIsImlhdCI6MTc3MDA0MDU2NCwiZXhwIjoxNzcwMTI2OTY0fQ.TNGzsguPCjj7r7IM18ClBGT9XARt77MGiWr909dOVPTHg6lFh0xFpZNN7HS7xbUf5nDMiEltCdmJMisMrwt_4B_WL28iEO_BqEuvM5PnrOUliPDamdEy6YYiStOqK_UCGGI8IFY-orj_2DDAeyg03D0htqPUZypxYYIVvGXfbcA6-UyuVt31F5QYDS9Sg5uxkflQspYmdV83IH-Sv9dLrm-atHOEjdPQDmWk1GJNiGVe2UZPqrlw-i5MR29Z5SLkB1Va2Qe9VOZ7cO61HNa8imI9UfculgRHeEbLFkdc6yCuYr2Ei7WQ5GbvdGpExpqD7gz_F3YsSaQgZ0k25W4-1Q"}
+[info] Updating Studio Workspace active project to match Firebase CLI 'allshoplocaluk'
+[debug] [2026-02-02T13:56:04.484Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.484Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.486Z] >>> [apiv2][query] PATCH https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 updateMask=workspace.firebaseProjectId
+[debug] [2026-02-02T13:56:04.486Z] >>> [apiv2][body] PATCH https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 {"firebaseProjectId":"allshoplocaluk"}
+[debug] [2026-02-02T13:56:04.780Z] <<< [apiv2][status] PATCH https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 403
+[debug] [2026-02-02T13:56:04.780Z] <<< [apiv2][body] PATCH https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352 {"error":{"code":403,"message":"User is not authorized on this resource","status":"PERMISSION_DENIED"}}
+[debug] [2026-02-02T13:56:04.781Z] Failed to update active Firebase Project for current Studio Workspace: Request to https://monospace-pa.googleapis.com/v1/workspaces/quickzymobile-app-08947352?updateMask=workspace.firebaseProjectId had HTTP Error: 403, User is not authorized on this resource
+[debug] [2026-02-02T13:56:04.788Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform","https://www.googleapis.com/auth/userinfo.email"]
+[debug] [2026-02-02T13:56:04.789Z] > authorizing via signed-in user (prajapatikaranc@gmail.com)
+[debug] [2026-02-02T13:56:04.789Z] [iam] checking project allshoplocaluk for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-02-02T13:56:04.790Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.790Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.790Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk:testIamPermissions [none]
+[debug] [2026-02-02T13:56:04.790Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk:testIamPermissions x-goog-quota-user=projects/allshoplocaluk
+[debug] [2026-02-02T13:56:04.791Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-02-02T13:56:04.936Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk:testIamPermissions 200
+[debug] [2026-02-02T13:56:04.936Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-02-02T13:56:04.937Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.937Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:04.938Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/allshoplocaluk/serviceAccounts/allshoplocaluk@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-02T13:56:04.938Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/allshoplocaluk/serviceAccounts/allshoplocaluk@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-02T13:56:05.190Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/allshoplocaluk/serviceAccounts/allshoplocaluk@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-02-02T13:56:05.191Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/allshoplocaluk/serviceAccounts/allshoplocaluk@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-02T13:56:05.192Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.192Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.194Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk [none]
+[debug] [2026-02-02T13:56:05.422Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk 200
+[debug] [2026-02-02T13:56:05.423Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk {"projectId":"allshoplocaluk","projectNumber":"980182296141","displayName":"Quickzy","name":"projects/allshoplocaluk","resources":{"hostingSite":"allshoplocaluk"},"state":"ACTIVE","etag":"1_1cbda4db-10df-4f84-9ed4-1d0ca2689264"}
+[debug] [2026-02-02T13:56:05.426Z] Specified "public" directory "public" does not exist; Deploy to Hosting site "allshoplocaluk" may fail or be empty.
+[info] 
+[info] === Deploying to 'allshoplocaluk'...
+[info] 
+[info] i  deploying functions, hosting 
+[debug] [2026-02-02T13:56:05.430Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.431Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.431Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk [none]
+[debug] [2026-02-02T13:56:05.614Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk 200
+[debug] [2026-02-02T13:56:05.614Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/allshoplocaluk {"projectNumber":"980182296141","projectId":"allshoplocaluk","lifecycleState":"ACTIVE","name":"Quickzy","labels":{"firebase":"enabled","firebase-core":"disabled","generative-language":"enabled"},"createTime":"2025-07-23T08:58:35.244027Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-02-02T13:56:05.618Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.618Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:05.618Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk/adminSdkConfig [none]
+[debug] [2026-02-02T13:56:06.167Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk/adminSdkConfig 200
+[debug] [2026-02-02T13:56:06.167Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/allshoplocaluk/adminSdkConfig {"projectId":"allshoplocaluk","storageBucket":"allshoplocaluk.firebasestorage.app"}
+[debug] [2026-02-02T13:56:06.168Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.168Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.169Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs [none]
+[debug] [2026-02-02T13:56:06.358Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs 200
+[debug] [2026-02-02T13:56:06.358Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs {"configs":[{"name":"projects/allshoplocaluk/configs/mongodb"}]}
+[debug] [2026-02-02T13:56:06.359Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.359Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.359Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables [none]
+[debug] [2026-02-02T13:56:06.518Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables 200
+[debug] [2026-02-02T13:56:06.518Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables {"variables":[{"name":"projects/allshoplocaluk/configs/mongodb/variables/uri","updateTime":"2026-01-21T15:09:59.081449020Z"}]}
+[debug] [2026-02-02T13:56:06.518Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.519Z] Checked if tokens are valid: true, expires at: 1770044162585
+[debug] [2026-02-02T13:56:06.519Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables/uri [none]
+[debug] [2026-02-02T13:56:06.716Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables/uri 200
+[debug] [2026-02-02T13:56:06.716Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/allshoplocaluk/configs/mongodb/variables/uri {"name":"projects/allshoplocaluk/configs/mongodb/variables/uri","updateTime":"2026-01-21T15:09:59.081449020Z","text":"mongodb+srv://quickzy_db_user:thq3tKQ3FOeT0Nq6@quickzy.zdpf4hx.mongodb.net/quickzy?retryWrites=true&w=majority"}

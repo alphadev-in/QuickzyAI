@@ -1,0 +1,52 @@
+diff --git a/backend/seed_data.py b/backend/seed_data.py
+index 67137b0..87b2249 100644
+--- a/backend/seed_data.py
++++ b/backend/seed_data.py
+@@ -27,6 +27,7 @@ async def seed_data():
+             "description": "Best pizza in town",
+             "cuisineTypes": ["Italian", "Pizza"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "123 Main St",
+                 "city": "New York",
+                 "state": "NY",
+@@ -47,6 +48,7 @@ async def seed_data():
+             "description": "Gourmet burgers and fries",
+             "cuisineTypes": ["American", "Burgers"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "456 Oak Ave",
+                 "city": "New York",
+                 "state": "NY",
+@@ -67,6 +69,7 @@ async def seed_data():
+             "description": "Fresh sushi and Japanese cuisine",
+             "cuisineTypes": ["Japanese", "Sushi"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "789 Elm St",
+                 "city": "New York",
+                 "state": "NY",
+@@ -87,6 +90,7 @@ async def seed_data():
+             "description": "Authentic Mexican tacos",
+             "cuisineTypes": ["Mexican", "Tacos"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "321 Pine St",
+                 "city": "New York",
+                 "state": "NY",
+@@ -107,6 +111,7 @@ async def seed_data():
+             "description": "Fresh salads and healthy options",
+             "cuisineTypes": ["Healthy", "Salads"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "654 Cedar Ln",
+                 "city": "New York",
+                 "state": "NY",
+@@ -127,6 +132,7 @@ async def seed_data():
+             "description": "Authentic Indian cuisine",
+             "cuisineTypes": ["Indian", "Curry"],
+             "address": {
++                "label": "Restaurant",
+                 "street": "987 Maple Dr",
+                 "city": "New York",
+                 "state": "NY",
