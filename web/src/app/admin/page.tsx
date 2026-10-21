@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -18,6 +21,9 @@ import {
   FileText,
   User,
   Users,
+  LogOut,
+  Loader2,
+  Lock,
 } from 'lucide-react';
 import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff } from '@/types/delivery';
 import { fetchAllOrders, updateOrderStatus, createOrder } from '@/lib/orderService';
@@ -25,8 +31,17 @@ import { fetchAllOrders, updateOrderStatus, createOrder } from '@/lib/orderServi
 const ADMIN_AUTHORIZED_EMAIL = 'prajapatikaranc@gmail.com';
 
 export default function AdminDashboardPage() {
-  const [sessionEmail, setSessionEmail] = useState('');
-  const [inputEmail, setInputEmail] = useState('');
+  const router = useRouter();
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  // Direct login form for admin
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  // Orders and Dashboard state
   const [orders, setOrders] = useState<QuickzyOrder[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -41,27 +56,86 @@ export default function AdminDashboardPage() {
   const [isRestricted, setIsRestricted] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('quickzy_admin_email');
-      if (stored) {
-        setSessionEmail(stored);
+    // Listen to real Firebase Authentication State
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email) {
+        setCurrentUserEmail(user.email.toLowerCase());
+        if (user.email.toLowerCase() === ADMIN_AUTHORIZED_EMAIL) {
+          loadOrders();
+        }
+      } else {
+        // Fallback check from persistent session
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('quickzy_user_session');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed.email) {
+                setCurrentUserEmail(parsed.email.toLowerCase());
+                if (parsed.email.toLowerCase() === ADMIN_AUTHORIZED_EMAIL) {
+                  loadOrders();
+                }
+              }
+            } catch {}
+          }
+        }
       }
-    }
-    loadOrders();
+      setAuthChecking(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadOrders = async () => {
-    const list = await fetchAllOrders(undefined, 'admin');
+    const list = await fetchAllOrders(ADMIN_AUTHORIZED_EMAIL, 'admin');
     setOrders(list);
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = inputEmail.trim().toLowerCase();
-    setSessionEmail(clean);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('quickzy_admin_email', clean);
+    setLoginError('');
+    setLoginLoading(true);
+
+    try {
+      const cleanEmail = loginEmail.trim().toLowerCase();
+      if (cleanEmail !== ADMIN_AUTHORIZED_EMAIL) {
+        setLoginError(`Access Denied: Only ${ADMIN_AUTHORIZED_EMAIL} has administrative privileges.`);
+        setLoginLoading(false);
+        return;
+      }
+
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
+      setCurrentUserEmail(cred.user.email?.toLowerCase() || cleanEmail);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          'quickzy_user_session',
+          JSON.stringify({
+            email: cleanEmail,
+            role: 'admin',
+            name: cred.user.displayName || 'Admin',
+          })
+        );
+      }
+      loadOrders();
+    } catch (err: any) {
+      console.error('Admin Sign-in error:', err);
+      let msg = err.message || 'Authentication failed.';
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        msg = 'Invalid password for prajapatikaranc@gmail.com';
+      }
+      setLoginError(msg);
+    } finally {
+      setLoginLoading(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('quickzy_user_session');
+    }
+    setCurrentUserEmail(null);
+    setOrders([]);
   };
 
   const handleStatusChange = async (orderId: string, nextStatus: OrderStatus) => {
@@ -101,7 +175,7 @@ export default function AdminDashboardPage() {
     loadOrders();
   };
 
-  const isAuthorized = sessionEmail.trim().toLowerCase() === ADMIN_AUTHORIZED_EMAIL;
+  const isAuthorized = currentUserEmail === ADMIN_AUTHORIZED_EMAIL;
 
   const filteredOrders = orders.filter((o) => {
     const q = search.toLowerCase();
@@ -118,6 +192,14 @@ export default function AdminDashboardPage() {
   const totalRevenue = orders.reduce((sum, o) => sum + (o.priceGbp || 0), 0);
   const activeDeliveries = orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length;
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950">
       {/* Header */}
@@ -128,7 +210,7 @@ export default function AdminDashboardPage() {
             className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-emerald-400 transition"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Main Platform</span>
+            <span>Back to Quickzy Main</span>
           </Link>
 
           <div className="flex items-center gap-3">
@@ -136,9 +218,18 @@ export default function AdminDashboardPage() {
               Admin Gateway
             </span>
             {isAuthorized && (
-              <span className="text-xs text-neutral-400 font-mono hidden sm:inline">
-                {ADMIN_AUTHORIZED_EMAIL}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400 font-mono hidden sm:inline">
+                  {ADMIN_AUTHORIZED_EMAIL}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="p-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -146,37 +237,64 @@ export default function AdminDashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
         {!isAuthorized ? (
-          <div className="max-w-md mx-auto py-16 text-center space-y-6">
-            <div className="w-16 h-16 rounded-3xl bg-red-500/10 text-red-400 flex items-center justify-center mx-auto border border-red-500/20">
-              <ShieldAlert className="w-8 h-8" />
+          <div className="max-w-md mx-auto py-12 text-center space-y-6">
+            <div className="w-16 h-16 rounded-3xl bg-red-500/10 text-red-400 flex items-center justify-center mx-auto border border-red-500/20 shadow-xl">
+              <Lock className="w-8 h-8" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-black text-white">Restricted Admin Access</h1>
+              <h1 className="text-2xl font-black text-white">Protected Admin Console</h1>
               <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                This administrative console can strictly only be accessed by{' '}
-                <strong className="text-red-400 font-mono">{ADMIN_AUTHORIZED_EMAIL}</strong>. Other accounts do not have permission to view or manage live fleet operations.
+                This administration interface is restricted. You must be authenticated as{' '}
+                <strong className="text-red-400 font-mono">{ADMIN_AUTHORIZED_EMAIL}</strong> to access live Firestore fleet records and dispatch tools.
               </p>
             </div>
 
-            <form onSubmit={handleAdminLogin} className="space-y-3 bg-neutral-900/80 p-6 rounded-2xl border border-neutral-800">
-              <div className="text-left">
-                <label className="text-xs text-neutral-400 block mb-1 font-semibold">Enter Authorized Email</label>
+            {loginError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2 text-left">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAdminSignIn} className="space-y-3.5 bg-neutral-900/90 p-6 sm:p-8 rounded-3xl border border-neutral-800 glass-panel text-left">
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1 font-semibold">Admin Email</label>
                 <input
                   type="email"
                   required
-                  value={inputEmail}
-                  onChange={(e) => setInputEmail(e.target.value)}
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder="prajapatikaranc@gmail.com"
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1 font-semibold">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white font-bold text-xs transition"
+                disabled={loginLoading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-500/20 transition cursor-pointer disabled:opacity-50"
               >
-                Authenticate Access
+                {loginLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Authorize as Super Admin</span>
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -187,30 +305,30 @@ export default function AdminDashboardPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                    Fleet Dispatcher & Orders Console
+                    Firestore Fleet Dispatch Console
                   </h1>
                   <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                    LIVE
+                    LIVE FIRESTORE
                   </span>
                 </div>
                 <p className="text-xs text-neutral-400 mt-1">
-                  System operated by <strong>Aelius Venture Limited</strong> • Authorized Superuser: {ADMIN_AUTHORIZED_EMAIL}
+                  Managed and operated by <strong>Aelius Venture Limited</strong> • Authenticated: <span className="text-white font-mono">{ADMIN_AUTHORIZED_EMAIL}</span>
                 </p>
               </div>
 
               <button
                 onClick={() => setIsCreatingOrder(!isCreatingOrder)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-neutral-950 font-black text-xs hover:from-emerald-400 hover:to-green-500 shadow-lg shadow-emerald-500/20 transition self-start sm:self-auto"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-neutral-950 font-black text-xs hover:from-emerald-400 hover:to-green-500 shadow-lg shadow-emerald-500/20 transition self-start sm:self-auto cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>Create Admin Order</span>
+                <span>Create Direct Order</span>
               </button>
             </div>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Total System Orders</span>
+                <span className="text-xs text-neutral-400">Total User Orders</span>
                 <p className="text-2xl font-black text-white">{orders.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
@@ -218,16 +336,16 @@ export default function AdminDashboardPage() {
                 <p className="text-2xl font-black text-cyan-400">{activeDeliveries}</p>
               </div>
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Total London Revenue</span>
+                <span className="text-xs text-neutral-400">Total Real Revenue</span>
                 <p className="text-2xl font-black text-emerald-400">£{totalRevenue.toFixed(2)}</p>
               </div>
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Cutoff Standard</span>
+                <span className="text-xs text-neutral-400">London Cutoff</span>
                 <p className="text-sm font-bold text-neutral-200 mt-1">14:00 GMT Daily</p>
               </div>
             </div>
 
-            {/* Create Order Modal / Drawer for Admin */}
+            {/* Create Order Drawer */}
             {isCreatingOrder && (
               <form
                 onSubmit={handleCreateOrderAsAdmin}
@@ -236,7 +354,7 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                   <h3 className="text-sm font-black text-white flex items-center gap-2">
                     <PlusCircle className="w-4 h-4 text-emerald-400" />
-                    Admin Direct Dispatch Creator
+                    Admin Direct Dispatch Creator (Stores Directly in Firestore)
                   </h3>
                   <button
                     type="button"
@@ -338,12 +456,12 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setIsRestricted(e.target.checked)}
                       className="rounded bg-neutral-900 border-neutral-700 text-emerald-500 w-4 h-4"
                     />
-                    <span>Requires Restricted Compliance Handling (Medicines/Batteries)</span>
+                    <span>Requires Restricted Compliance Handling</span>
                   </label>
 
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                    className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
                   >
                     Confirm Dispatch
                   </button>
@@ -380,14 +498,14 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Orders Management Table */}
+            {/* Real Orders Table from Firestore */}
             <div className="overflow-x-auto border border-neutral-800 rounded-2xl bg-neutral-900/40">
               <table className="w-full text-left text-xs">
                 <thead className="bg-neutral-900 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="p-3.5">Order ID</th>
                     <th className="p-3.5">Stream</th>
-                    <th className="p-3.5">User / Client</th>
+                    <th className="p-3.5">Sender Email</th>
                     <th className="p-3.5">Pickup ➔ Dropoff</th>
                     <th className="p-3.5">Price</th>
                     <th className="p-3.5">Status</th>
@@ -403,7 +521,7 @@ export default function AdminDashboardPage() {
                           {order.type}
                         </span>
                       </td>
-                      <td className="p-3.5 text-neutral-400">{order.userEmail || 'Client Account'}</td>
+                      <td className="p-3.5 text-neutral-400 font-mono text-[11px]">{order.userEmail || order.userId}</td>
                       <td className="p-3.5 font-mono text-[11px]">
                         <span className="text-emerald-400">{order.pickupAddress.postcode}</span>
                         <span className="text-neutral-500 mx-1.5">➔</span>
@@ -463,7 +581,7 @@ export default function AdminDashboardPage() {
 
               {filteredOrders.length === 0 && (
                 <div className="p-8 text-center text-xs text-neutral-500">
-                  No orders match your filter criteria.
+                  No orders found in Firestore. Orders created by users will appear here live.
                 </div>
               )}
             </div>
@@ -472,7 +590,7 @@ export default function AdminDashboardPage() {
       </main>
 
       <footer className="border-t border-neutral-900 py-6 text-center text-xs text-neutral-500 space-y-1 mt-10">
-        <p>© 2026 Quickzy • App Managed and Operated by <strong>Aelius Venture Limited</strong>. Registered in England & Wales.</p>
+        <p>© 2026 Quickzy • Managed and operated by <strong>Aelius Venture Limited</strong>.</p>
         <p className="text-[11px] text-neutral-400">Strictly Authorized Personnel Access Only: prajapatikaranc@gmail.com</p>
       </footer>
     </div>

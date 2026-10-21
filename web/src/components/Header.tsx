@@ -145,13 +145,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Address Book</span>
             </button>
 
-            <Link
-              href="/admin"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Admin</span>
-            </Link>
+            {currentUser?.email?.toLowerCase() === 'prajapatikaranc@gmail.com' && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Admin</span>
+              </Link>
+            )}
 
             <button
               onClick={onOpenAuth}
@@ -239,21 +241,23 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </button>
 
-          <div className="pt-2 border-t border-neutral-800 grid grid-cols-2 gap-2 text-center text-xs">
+          <div className="pt-2 border-t border-neutral-800 flex gap-2 text-center text-xs">
             <Link
               href="/signup"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 rounded-xl bg-neutral-800 text-white font-bold"
+              className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-white font-bold"
             >
               Sign Up
             </Link>
-            <Link
-              href="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 rounded-xl bg-red-500/20 text-red-400 font-bold border border-red-500/30"
-            >
-              Admin Portal
-            </Link>
+            {currentUser?.email?.toLowerCase() === 'prajapatikaranc@gmail.com' && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 font-bold border border-red-500/30"
+              >
+                Admin Portal
+              </Link>
+            )}
           </div>
         </div>
       )}

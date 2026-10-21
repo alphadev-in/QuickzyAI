@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AppProvider, useApp } from '@/context/AppContext';
+import { AppProvider } from '@/context/AppContext';
 import { Header } from '@/components/Header';
 import { SingleBookingForm } from '@/components/SingleBookingForm';
 import { BulkParcelBooking } from '@/components/BulkParcelBooking';
@@ -15,6 +15,9 @@ import { DriverCockpit } from '@/components/DriverCockpit';
 import { RouteBatcherCockpit } from '@/components/RouteBatcherCockpit';
 import { AddressItem, QuickzyOrder, UserRole } from '@/types/delivery';
 import { fetchUserAddresses, fetchAllOrders } from '@/lib/orderService';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   Pill,
   Utensils,
@@ -26,13 +29,21 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle,
+  Lock,
+  UserCheck,
+  MapPin,
+  CalendarCheck,
+  FileSpreadsheet,
+  Activity,
+  LogOut,
 } from 'lucide-react';
 
-type MainTab = 'storefront' | 'booking' | 'bulk' | 'tracking' | 'merchant' | 'driver' | 'dispatch';
+type MainTab = 'index' | 'booking' | 'bulk' | 'tracking' | 'storefront' | 'merchant' | 'driver' | 'dispatch';
 
 function MainApplicationContent() {
-  const [activeTab, setActiveTab] = useState<MainTab>('booking');
+  const [activeTab, setActiveTab] = useState<MainTab>('index');
   const [currentUser, setCurrentUser] = useState<{
+    uid?: string;
     email: string;
     role: UserRole;
     name: string;
@@ -49,31 +60,69 @@ function MainApplicationContent() {
   const [savedAddresses, setSavedAddresses] = useState<AddressItem[]>([]);
   const [orders, setOrders] = useState<QuickzyOrder[]>([]);
 
+  // Real Firebase Auth listener: users start as unauthenticated visitors on index page
   useEffect(() => {
-    // Check if session exists in localStorage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('quickzy_user_session');
-      if (stored) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser && firebaseUser.email) {
+        const cleanEmail = firebaseUser.email.toLowerCase();
+        let role: UserRole = cleanEmail === 'prajapatikaranc@gmail.com' ? 'admin' : 'customer';
+        let companyName: string | undefined = undefined;
+        let displayName = firebaseUser.displayName || cleanEmail.split('@')[0];
+
         try {
-          setCurrentUser(JSON.parse(stored));
-        } catch {}
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            role = data.role || role;
+            companyName = data.companyName || undefined;
+            displayName = data.name || displayName;
+          }
+        } catch (e) {
+          console.warn('Could not read user profile from firestore:', e);
+        }
+
+        const sessionUser = {
+          uid: firebaseUser.uid,
+          email: cleanEmail,
+          role,
+          name: displayName,
+          companyName,
+        };
+
+        setCurrentUser(sessionUser);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('quickzy_user_session', JSON.stringify(sessionUser));
+        }
       } else {
-        // Default demo customer user
-        setCurrentUser({
-          email: 'karan@quickzy.co.uk',
-          role: 'customer',
-          name: 'Karan Prajapati',
-        });
+        // Fallback to local session if explicitly logged in
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('quickzy_user_session');
+          if (stored) {
+            try {
+              setCurrentUser(JSON.parse(stored));
+            } catch {
+              setCurrentUser(null);
+            }
+          } else {
+            setCurrentUser(null);
+          }
+        }
       }
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadData = async () => {
-    const userId = currentUser ? currentUser.email : 'guest_user';
-    const addrs = await fetchUserAddresses(userId);
+    if (!currentUser) {
+      setSavedAddresses([]);
+      setOrders([]);
+      return;
+    }
+    const addrs = await fetchUserAddresses(currentUser.email);
     setSavedAddresses(addrs);
 
-    const ords = await fetchAllOrders(userId, currentUser?.role);
+    const ords = await fetchAllOrders(currentUser.email, currentUser.role);
     setOrders(ords);
   };
 
@@ -99,184 +148,300 @@ function MainApplicationContent() {
     setActiveTab('tracking');
   };
 
+  const handleSignOutUser = async () => {
+    try {
+      await signOut(auth);
+    } catch {}
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('quickzy_user_session');
+    }
+    setCurrentUser(null);
+    setOrders([]);
+    setSavedAddresses([]);
+    setActiveTab('index');
+  };
+
+  // Guard for Instant Booking, Bulk, and Tracking: Requires login
+  const requireLoginForTab = (targetTab: MainTab) => {
+    if (!currentUser) {
+      setIsAuthOpen(true);
+    } else {
+      setActiveTab(targetTab);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950">
       <Header
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenAddressBook={() => {
-          setAddressSelectionMode(null);
-          setIsAddressBookOpen(true);
+          if (!currentUser) {
+            setIsAuthOpen(true);
+          } else {
+            setAddressSelectionMode(null);
+            setIsAddressBookOpen(true);
+          }
         }}
         currentUser={currentUser}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        activeTab={activeTab === 'index' ? 'booking' : (activeTab as any)}
+        setActiveTab={(tab) => {
+          if (tab === 'booking' || tab === 'bulk' || tab === 'tracking') {
+            requireLoginForTab(tab);
+          } else {
+            setActiveTab(tab);
+          }
+        }}
       />
 
-      {/* Hero Welcome Banner with dynamic animations */}
-      <section className="relative overflow-hidden border-b border-neutral-900 bg-gradient-to-b from-neutral-900/60 via-neutral-950 to-neutral-950 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+      {/* Main Index Showcase (Visible when in index tab or when user explores platform) */}
+      {activeTab === 'index' && (
+        <div className="space-y-12 pb-12">
+          {/* Hero Section */}
+          <section className="relative overflow-hidden border-b border-neutral-900 bg-gradient-to-b from-neutral-900/60 via-neutral-950 to-neutral-950 py-16 px-4 sm:px-6 lg:px-8">
+            <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+            <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
 
-        <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl text-center md:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold">
-              <Sparkles className="w-3.5 h-3.5 animate-spin" />
-              <span>London&apos;s Fastest Multi-Stream Same-Day Fleet</span>
+            <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/10">
+                <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                <span>London&apos;s Dedicated Same-Day Rapid Logistics Network</span>
+              </div>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+                Point-to-Point London Courier for{' '}
+                <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+                  Pharmacy, Food & Parcels
+                </span>
+              </h1>
+
+              <p className="text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+                Managed and operated by <strong className="text-white">Aelius Venture Limited</strong>. Single instant booking, bulk CSV manifests with transaction guarantee, and real-time fleet dispatch across all Greater London boroughs.
+              </p>
+
+              {/* Primary Call to Action */}
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                {currentUser ? (
+                  <button
+                    onClick={() => setActiveTab('booking')}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition cursor-pointer"
+                  >
+                    <CalendarCheck className="w-4 h-4" />
+                    <span>Go to Instant London Booking</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsAuthOpen(true)}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition cursor-pointer"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Sign In to Book Courier</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <Link
+                      href="/signup"
+                      className="px-5 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 font-bold text-xs transition"
+                    >
+                      Create Free Account
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              {/* Three Stream Feature Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left">
+                <div className="p-5 rounded-2xl glass-panel space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <Pill className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white">Pharmacy & Medical</h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Priority delivery for prescriptions, clinical diagnostic samples, and regulated healthcare packages with dedicated handling.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl glass-panel space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
+                    <Utensils className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white">Food & Groceries</h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Insulated cold-chain bags and rapid dispatch for local bakeries, butchers, deli items, and prepared meals across London.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl glass-panel space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white">Parcels & Bulk B2B</h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Same-day London parcel courier with single-transaction CSV manifest imports and automated 14:00 GMT cutoff tracking.
+                  </p>
+                </div>
+              </div>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-              Rapid Same-Day Delivery for{' '}
-              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-                Pharmacy, Food & Parcels
+          </section>
+
+          {/* How Quickzy Works Section */}
+          <section className="max-w-5xl mx-auto px-4 text-center space-y-8">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                Operating Workflow
               </span>
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-              Managed and operated by <strong className="text-white">Aelius Venture Limited</strong>. Instant single booking, bulk CSV manifests with transaction guarantee, and real-time fleet dispatch across all Greater London boroughs.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
-              <button
-                onClick={() => setActiveTab('booking')}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
-              >
-                <span>Book Courier Now</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setActiveTab('bulk')}
-                className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700/80 font-bold text-xs flex items-center gap-2 transition cursor-pointer"
-              >
-                <span>Business Bulk CSV</span>
-              </button>
-
-              <Link
-                href="/signup"
-                className="px-4 py-2.5 rounded-xl bg-neutral-900/60 hover:bg-neutral-800 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition"
-              >
-                Register Account
-              </Link>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mt-2">
+                Streamlined Same-Day London Dispatch
+              </h2>
             </div>
-          </div>
 
-          {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 gap-3 w-full sm:w-auto">
-            <div className="p-4 rounded-2xl glass-panel text-left space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
-                <Clock className="w-4 h-4" />
-                <span>14:00 GMT</span>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-left">
+              <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
+                <span className="text-xs font-mono font-bold text-emerald-400">01. Authenticate</span>
+                <p className="text-xs font-bold text-white">Sign In or Register</p>
+                <p className="text-[11px] text-neutral-400">
+                  Secure Firebase Authentication stores all your London addresses and orders in Firestore.
+                </p>
               </div>
-              <p className="text-[11px] text-neutral-400">Same-Day Cutoff</p>
-              <p className="text-xs font-bold text-white">Automated Next-Day Roll</p>
-            </div>
 
-            <div className="p-4 rounded-2xl glass-panel text-left space-y-1">
-              <div className="flex items-center gap-1.5 text-cyan-400 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Compliant</span>
+              <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
+                <span className="text-xs font-mono font-bold text-emerald-400">02. Configure</span>
+                <p className="text-xs font-bold text-white">Choose Stream & Route</p>
+                <p className="text-[11px] text-neutral-400">
+                  Select Pharmacy, Food, or Parcel. Enter London postcodes with instant geocoding checks.
+                </p>
               </div>
-              <p className="text-[11px] text-neutral-400">Restricted Freight</p>
-              <p className="text-xs font-bold text-white">Medicines & Batteries</p>
+
+              <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
+                <span className="text-xs font-mono font-bold text-emerald-400">03. Automated Price</span>
+                <p className="text-xs font-bold text-white">Distance & Dimensions</p>
+                <p className="text-[11px] text-neutral-400">
+                  Dynamic price calculation with 14:00 GMT cutoff verification for same-day delivery.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
+                <span className="text-xs font-mono font-bold text-emerald-400">04. Live Fleet</span>
+                <p className="text-xs font-bold text-white">Track & Invoicing</p>
+                <p className="text-[11px] text-neutral-400">
+                  Follow real-time progress from collection to doorstep with automated invoicing.
+                </p>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
-      </section>
+      )}
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
-        {/* Active Role Selector bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl glass-panel text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-neutral-400">Viewing as:</span>
-            <span className="font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              {currentUser?.role || 'Guest'}
-            </span>
-            {currentUser?.companyName && (
-              <span className="text-neutral-400 font-medium hidden sm:inline">({currentUser.companyName})</span>
-            )}
+      {/* Authenticated Dashboard / Workspaces */}
+      {activeTab !== 'index' && (
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+          {/* User Status Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl glass-panel text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-400">Logged in as:</span>
+              <span className="font-extrabold text-white font-mono">{currentUser?.email}</span>
+              <span className="font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px]">
+                {currentUser?.role}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('index')}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300"
+              >
+                Back to Home Page
+              </button>
+              <button
+                onClick={handleSignOutUser}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="text-neutral-400 text-[11px] hidden sm:inline">Switch Role:</span>
+          {/* Tab Navigation for Logged-In Users */}
+          <div className="flex flex-wrap gap-2 border-b border-neutral-800 pb-3">
             <button
-              onClick={() =>
-                setCurrentUser({
-                  email: 'customer@london.co.uk',
-                  role: 'customer',
-                  name: 'Alice Customer',
-                })
-              }
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                currentUser?.role === 'customer'
-                  ? 'bg-emerald-500 text-neutral-950 font-bold'
+              onClick={() => setActiveTab('booking')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                activeTab === 'booking'
+                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
                   : 'bg-neutral-900 text-neutral-300 hover:text-white'
               }`}
             >
-              Customer
+              <CalendarCheck className="w-3.5 h-3.5" />
+              <span>Instant London Booking</span>
             </button>
+
             <button
-              onClick={() =>
-                setCurrentUser({
-                  email: 'business@harleystclinic.co.uk',
-                  role: 'client',
-                  name: 'Harley St Medical',
-                  companyName: 'Harley Street Group Ltd',
-                })
-              }
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                currentUser?.role === 'client'
-                  ? 'bg-cyan-500 text-neutral-950 font-bold'
+              onClick={() => setActiveTab('bulk')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                activeTab === 'bulk'
+                  ? 'bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20'
                   : 'bg-neutral-900 text-neutral-300 hover:text-white'
               }`}
             >
-              Client (Bulk)
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Bulk CSV Importer</span>
             </button>
-            <Link
-              href="/admin"
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition"
+
+            <button
+              onClick={() => setActiveTab('tracking')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                activeTab === 'tracking'
+                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
+                  : 'bg-neutral-900 text-neutral-300 hover:text-white'
+              }`}
             >
-              Admin Portal
-            </Link>
+              <Activity className="w-3.5 h-3.5" />
+              <span>My Orders & Tracking</span>
+            </button>
           </div>
-        </div>
 
-        {/* View Switcher based on active tab */}
-        {activeTab === 'booking' && (
-          <SingleBookingForm
-            userId={currentUser?.email || 'guest_user'}
-            userEmail={currentUser?.email || 'guest@quickzy.co.uk'}
-            role={currentUser?.role || 'customer'}
-            savedAddresses={savedAddresses}
-            onOpenAddressBook={handleOpenAddressBookForSelection}
-            onOrderCreated={handleOrderCreated}
-            selectedPickupAddress={selectedPickup}
-            selectedDropoffAddress={selectedDropoff}
-          />
-        )}
+          {/* Booking View */}
+          {activeTab === 'booking' && (
+            <SingleBookingForm
+              userId={currentUser?.email || 'authenticated_user'}
+              userEmail={currentUser?.email || 'user@quickzy.co.uk'}
+              role={currentUser?.role || 'customer'}
+              savedAddresses={savedAddresses}
+              onOpenAddressBook={handleOpenAddressBookForSelection}
+              onOrderCreated={handleOrderCreated}
+              selectedPickupAddress={selectedPickup}
+              selectedDropoffAddress={selectedDropoff}
+            />
+          )}
 
-        {activeTab === 'bulk' && (
-          <BulkParcelBooking
-            clientId={currentUser?.email || 'client_demo'}
-            clientEmail={currentUser?.email || 'client@quickzy.co.uk'}
-            onBulkCompleted={(newOrders) => {
-              setOrders((prev) => [...newOrders, ...prev]);
-              setActiveTab('tracking');
-            }}
-          />
-        )}
+          {/* Bulk CSV View */}
+          {activeTab === 'bulk' && (
+            <BulkParcelBooking
+              clientId={currentUser?.email || 'client_account'}
+              clientEmail={currentUser?.email || 'client@quickzy.co.uk'}
+              onBulkCompleted={(newOrders) => {
+                setOrders((prev) => [...newOrders, ...prev]);
+                setActiveTab('tracking');
+              }}
+            />
+          )}
 
-        {activeTab === 'tracking' && (
-          <OrderStatusTracking
-            orders={orders}
-            currentUserRole={currentUser?.role || 'customer'}
-            onRefreshOrders={loadData}
-          />
-        )}
+          {/* Tracking View */}
+          {activeTab === 'tracking' && (
+            <OrderStatusTracking
+              orders={orders}
+              currentUserRole={currentUser?.role || 'customer'}
+              onRefreshOrders={loadData}
+            />
+          )}
 
-        {activeTab === 'storefront' && <CustomerStorefront />}
-        {activeTab === 'merchant' && <MerchantPortal />}
-        {activeTab === 'driver' && <DriverCockpit />}
-        {activeTab === 'dispatch' && <RouteBatcherCockpit />}
-      </main>
+          {activeTab === 'storefront' && <CustomerStorefront />}
+          {activeTab === 'merchant' && <MerchantPortal />}
+          {activeTab === 'driver' && <DriverCockpit />}
+          {activeTab === 'dispatch' && <RouteBatcherCockpit />}
+        </main>
+      )}
 
       {/* Auth Modal */}
       <AuthModal
@@ -285,31 +450,26 @@ function MainApplicationContent() {
         currentUser={currentUser}
         onLogin={(user) => {
           setCurrentUser(user);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('quickzy_user_session', JSON.stringify(user));
-          }
+          setActiveTab('booking');
         }}
-        onLogout={() => {
-          setCurrentUser(null);
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('quickzy_user_session');
-          }
-        }}
+        onLogout={handleSignOutUser}
       />
 
       {/* Address Book Modal */}
-      <AddressBookModal
-        isOpen={isAddressBookOpen}
-        onClose={() => {
-          setIsAddressBookOpen(false);
-          setAddressSelectionMode(null);
-        }}
-        userId={currentUser?.email || 'guest_user'}
-        savedAddresses={savedAddresses}
-        onSelectAddress={handleSelectAddress}
-        selectionMode={addressSelectionMode}
-        onRefreshAddresses={loadData}
-      />
+      {currentUser && (
+        <AddressBookModal
+          isOpen={isAddressBookOpen}
+          onClose={() => {
+            setIsAddressBookOpen(false);
+            setAddressSelectionMode(null);
+          }}
+          userId={currentUser.email}
+          savedAddresses={savedAddresses}
+          onSelectAddress={handleSelectAddress}
+          selectionMode={addressSelectionMode}
+          onRefreshAddresses={loadData}
+        />
+      )}
 
       {/* Footer with Aelius Venture Limited Branding & Legal Links */}
       <footer className="border-t border-neutral-900 bg-neutral-950 py-10 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-neutral-400">
@@ -318,14 +478,14 @@ function MainApplicationContent() {
             <div className="flex items-center justify-center md:justify-start gap-2">
               <span className="font-black text-white text-base">Quickzy</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">
-                v2.4
+                v2.5
               </span>
             </div>
             <p className="text-xs text-neutral-400">
               App managed and operated by <strong className="text-white">Aelius Venture Limited</strong>.
             </p>
             <p className="text-[11px] text-neutral-500">
-              Registered in England & Wales • Rapid Logistics for Pharmacy, Food & Parcels.
+              Registered in England & Wales • Pure Firebase Firestore Sync • Zero Dummy Data.
             </p>
           </div>
 
@@ -342,9 +502,11 @@ function MainApplicationContent() {
             <Link href="/onboarding" className="hover:text-emerald-400 transition">
               Fleet Onboarding
             </Link>
-            <Link href="/admin" className="text-red-400/80 hover:text-red-400 font-semibold transition">
-              Admin Portal
-            </Link>
+            {currentUser?.email?.toLowerCase() === 'prajapatikaranc@gmail.com' && (
+              <Link href="/admin" className="text-red-400 font-semibold transition">
+                Admin Portal
+              </Link>
+            )}
           </div>
         </div>
       </footer>

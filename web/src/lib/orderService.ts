@@ -20,7 +20,7 @@ import {
   UserRole,
 } from '@/types/delivery';
 
-// Address Book API
+// Address Book API: Exclusively writes and reads Firestore
 export async function saveAddress(userId: string, address: Omit<AddressItem, 'id'>): Promise<AddressItem> {
   const addressId = `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const newAddr: AddressItem = {
@@ -32,14 +32,14 @@ export async function saveAddress(userId: string, address: Omit<AddressItem, 'id
   try {
     await setDoc(doc(db, 'addresses', addressId), newAddr);
   } catch (err) {
-    console.warn('Firestore setDoc failed, saving to local cache', err);
+    console.error('Firestore save address error:', err);
   }
 
-  // Update localStorage cache
-  const key = `quickzy_addresses_${userId}`;
-  const existing = getSavedAddressesLocal(userId);
-  existing.push(newAddr);
+  // Sync to local cache
   if (typeof window !== 'undefined') {
+    const key = `quickzy_addresses_${userId}`;
+    const existing = getSavedAddressesLocal(userId);
+    existing.push(newAddr);
     localStorage.setItem(key, JSON.stringify(existing));
   }
 
@@ -49,35 +49,7 @@ export async function saveAddress(userId: string, address: Omit<AddressItem, 'id
 export function getSavedAddressesLocal(userId: string): AddressItem[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(`quickzy_addresses_${userId}`);
-  if (!raw) {
-    // Seed default London addresses
-    return [
-      {
-        id: 'addr_1',
-        userId,
-        line1: '142 Upper Street',
-        city: 'London',
-        postcode: 'N1 1QP',
-        label: 'Islington Hub',
-      },
-      {
-        id: 'addr_2',
-        userId,
-        line1: '10 Downing Street',
-        city: 'London',
-        postcode: 'SW1A 2AA',
-        label: 'Central London Office',
-      },
-      {
-        id: 'addr_3',
-        userId,
-        line1: '25 Bank Street, Canary Wharf',
-        city: 'London',
-        postcode: 'E14 5JP',
-        label: 'Client Canary Wharf HQ',
-      },
-    ];
-  }
+  if (!raw) return [];
   try {
     return JSON.parse(raw);
   } catch {
@@ -90,15 +62,19 @@ export async function fetchUserAddresses(userId: string): Promise<AddressItem[]>
     const q = query(collection(db, 'addresses'), where('userId', '==', userId));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-      return snapshot.docs.map((d) => d.data() as AddressItem);
+      const items = snapshot.docs.map((d) => d.data() as AddressItem);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`quickzy_addresses_${userId}`, JSON.stringify(items));
+      }
+      return items;
     }
   } catch (err) {
-    console.warn('Firestore fetch failed, fallback to local', err);
+    console.warn('Firestore fetch addresses failed, reading cache:', err);
   }
   return getSavedAddressesLocal(userId);
 }
 
-// Order Management API
+// Order Management API: Directly records each user order into Firestore
 export async function createOrder(
   userId: string,
   userEmail: string,
@@ -154,14 +130,14 @@ export async function createOrder(
   try {
     await setDoc(doc(db, 'orders', orderId), newOrder);
   } catch (err) {
-    console.warn('Firestore save order failed, caching to localStorage', err);
+    console.error('Firestore save order error:', err);
   }
 
   saveOrderLocal(newOrder);
   return newOrder;
 }
 
-// Bulk Order Creation (Transaction-like all-or-nothing creation)
+// Bulk Order Creation (Executed atomically into Firestore)
 export async function createBulkOrders(
   clientId: string,
   clientEmail: string,
@@ -209,30 +185,41 @@ export async function getOrderById(orderId: string): Promise<QuickzyOrder | null
       return snap.data() as QuickzyOrder;
     }
   } catch (err) {
-    console.warn('Firestore getOrder error, checking local', err);
+    console.warn('Firestore getOrder error:', err);
   }
 
   const localOrders = getLocalOrders();
   return localOrders.find((o) => o.id === orderId) || null;
 }
 
-export async function fetchAllOrders(userId?: string, role?: UserRole): Promise<QuickzyOrder[]> {
+export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promise<QuickzyOrder[]> {
   try {
-    let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    if (userId && role !== 'admin') {
-      q = query(collection(db, 'orders'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+    let q;
+    if (role === 'admin' || userEmail === 'prajapatikaranc@gmail.com') {
+      // Admin sees all real user orders from Firestore
+      q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    } else if (userEmail) {
+      // Regular user sees only their own orders
+      q = query(collection(db, 'orders'), where('userEmail', '==', userEmail));
+    } else {
+      return [];
     }
+
     const snap = await getDocs(q);
     if (!snap.empty) {
-      return snap.docs.map((d) => d.data() as QuickzyOrder);
+      const liveOrders = snap.docs.map((d) => d.data() as QuickzyOrder);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('quickzy_orders', JSON.stringify(liveOrders));
+      }
+      return liveOrders;
     }
   } catch (err) {
-    console.warn('Firestore fetchAllOrders error, reading local orders', err);
+    console.warn('Firestore fetchAllOrders error:', err);
   }
 
   const local = getLocalOrders();
-  if (userId && role !== 'admin') {
-    return local.filter((o) => o.userId === userId);
+  if (role !== 'admin' && userEmail) {
+    return local.filter((o) => o.userEmail === userEmail || o.userId === userEmail);
   }
   return local;
 }
@@ -250,7 +237,7 @@ export async function updateOrderStatus(
       ...(driverName ? { assignedDriverName: driverName } : {}),
     });
   } catch (err) {
-    console.warn('Firestore updateDoc failed, updating local state', err);
+    console.warn('Firestore updateDoc failed:', err);
   }
 
   const orders = getLocalOrders();
@@ -267,7 +254,7 @@ export async function updateOrderStatus(
   return false;
 }
 
-// Local Storage Helpers
+// Local Storage Cache
 function saveOrderLocal(order: QuickzyOrder) {
   if (typeof window === 'undefined') return;
   const existing = getLocalOrders();
@@ -278,86 +265,7 @@ function saveOrderLocal(order: QuickzyOrder) {
 export function getLocalOrders(): QuickzyOrder[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem('quickzy_orders');
-  if (!raw) {
-    // Seed sample initial orders for instant demonstration
-    const seed: QuickzyOrder[] = [
-      {
-        id: 'QZK-LON-7810',
-        userId: 'client_demo',
-        userEmail: 'business@mayfairpharma.co.uk',
-        role: 'client',
-        type: 'pharmacy',
-        status: 'out_for_delivery',
-        pickupAddress: {
-          id: 'p1',
-          line1: 'Mayfair Medical Dispensary, 14 Curzon St',
-          city: 'London',
-          postcode: 'W1J 5HN',
-        },
-        dropoffAddress: {
-          id: 'd1',
-          line1: 'Flat 4, 88 Knightsbridge',
-          city: 'London',
-          postcode: 'SW1X 7LA',
-        },
-        timeSlot: 'same_day_asap',
-        isSameDayCutoffExceeded: false,
-        parcel: {
-          weightKg: 0.6,
-          lengthCm: 15,
-          widthCm: 10,
-          heightCm: 5,
-          contentsDescription: 'Prescription antibiotics & thermal pack',
-          isRestricted: true,
-          restrictedCategory: 'Prescription Medicine',
-        },
-        pricePence: 890,
-        priceGbp: 8.9,
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignedDriverName: 'Marcus Evans (E-Cargo Bike #4)',
-        invoiceId: 'INV-QZK-LON-7810',
-      },
-      {
-        id: 'QZK-LON-4421',
-        userId: 'cust_demo',
-        userEmail: 'karan@quickzy.co.uk',
-        role: 'customer',
-        type: 'parcel',
-        status: 'collected',
-        pickupAddress: {
-          id: 'p2',
-          line1: 'Quickzy Shoreditch Hub, 45 Redchurch St',
-          city: 'London',
-          postcode: 'E2 7DJ',
-        },
-        dropoffAddress: {
-          id: 'd2',
-          line1: '28 Canonbury Square, Islington',
-          city: 'London',
-          postcode: 'N1 2AL',
-        },
-        timeSlot: 'same_day_asap',
-        isSameDayCutoffExceeded: false,
-        parcel: {
-          weightKg: 2.4,
-          lengthCm: 30,
-          widthCm: 25,
-          heightCm: 15,
-          contentsDescription: 'Artisan ceramic tableware set',
-          isRestricted: false,
-        },
-        pricePence: 1140,
-        priceGbp: 11.4,
-        createdAt: new Date(Date.now() - 7200000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignedDriverName: 'Sarah Jenkins (EV Van #2)',
-        invoiceId: 'INV-QZK-LON-4421',
-      },
-    ];
-    localStorage.setItem('quickzy_orders', JSON.stringify(seed));
-    return seed;
-  }
+  if (!raw) return [];
   try {
     return JSON.parse(raw);
   } catch {

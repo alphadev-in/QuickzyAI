@@ -3,7 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Building2, ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { User, Building2, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { UserRole } from '@/types/delivery';
 
 export default function SignupPage() {
@@ -13,27 +16,65 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [registered, setRegistered] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+    setLoading(true);
+    setErrorMsg('');
 
-    // Store session into localStorage for persistent client state
-    const userSession = {
-      email,
-      role,
-      name: name || email.split('@')[0],
-      companyName: role === 'client' ? companyName || 'London Business Ltd' : undefined,
-    };
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('quickzy_user_session', JSON.stringify(userSession));
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const determinedRole: UserRole = cleanEmail === 'prajapatikaranc@gmail.com' ? 'admin' : role;
+      const userName = name.trim() || cleanEmail.split('@')[0];
+
+      // Create in Firebase Authentication
+      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      await updateProfile(cred.user, { displayName: userName });
+
+      // Save user profile in Firestore
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        uid: cred.user.uid,
+        email: cleanEmail,
+        name: userName,
+        role: determinedRole,
+        companyName: determinedRole === 'client' ? companyName.trim() : null,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Save session cache for web client
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          'quickzy_user_session',
+          JSON.stringify({
+            uid: cred.user.uid,
+            email: cleanEmail,
+            role: determinedRole,
+            name: userName,
+            companyName: determinedRole === 'client' ? companyName.trim() : undefined,
+          })
+        );
+      }
+
+      setRegistered(true);
+      setTimeout(() => {
+        router.push('/onboarding');
+      }, 1200);
+    } catch (err: any) {
+      console.error('Signup error:', err);
+      let msg = err.message || 'Failed to create Firebase account';
+      if (err.code === 'auth/email-already-in-use') {
+        msg = 'An account already exists with this email address.';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'Password should be at least 6 characters.';
+      }
+      setErrorMsg(msg);
+    } finally {
+      setLoading(false);
     }
-
-    setRegistered(true);
-    setTimeout(() => {
-      router.push('/onboarding');
-    }, 1200);
   };
 
   return (
@@ -70,7 +111,7 @@ export default function SignupPage() {
             <div>
               <div className="mb-6">
                 <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  Same-Day London Fleet
+                  Firebase Cloud Authentication
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-2">
                   Create Quickzy Account
@@ -79,6 +120,13 @@ export default function SignupPage() {
                   Managed and operated by <strong>Aelius Venture Limited</strong>
                 </p>
               </div>
+
+              {errorMsg && (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               {/* Role Selector Tabs */}
               <div className="grid grid-cols-2 gap-1.5 bg-neutral-950 p-1.5 rounded-2xl mb-5 border border-neutral-800/80">
@@ -145,31 +193,39 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.co.uk"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs text-neutral-400 block mb-1 font-semibold flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5" /> Password
+                    <Lock className="w-3.5 h-3.5" /> Password (min 6 characters)
                   </label>
                   <input
                     type="password"
                     required
+                    minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition font-mono"
                   />
                 </div>
 
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+                    disabled={loading}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
                   >
-                    <span>Create Account & Continue</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <span>Create Firebase Account & Continue</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
