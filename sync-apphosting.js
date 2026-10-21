@@ -28,11 +28,20 @@ try {
   // 1. Copy web/.next to root .next
   copyDirRecursive(webNextDir, rootNextDir);
 
-  // 2. Ensure .next/standalone/.next has the standalone manifests
-  const standaloneNested = path.join(webNextDir, 'standalone', 'web', '.next');
-  const rootStandaloneNested = path.join(rootNextDir, 'standalone', '.next');
-  if (fs.existsSync(standaloneNested)) {
-    copyDirRecursive(standaloneNested, rootStandaloneNested);
+  // 2. Setup root .next/standalone
+  const rootStandaloneDir = path.join(rootNextDir, 'standalone');
+  const webStandaloneDir = path.join(webNextDir, 'standalone');
+  const webStandaloneInner = path.join(webStandaloneDir, 'web');
+
+  if (fs.existsSync(webStandaloneDir)) {
+    // Copy node_modules from web/.next/standalone into root .next/standalone
+    copyDirRecursive(webStandaloneDir, rootStandaloneDir);
+
+    // In a monorepo workspace, Next outputs server.js and .next inside standalone/web/
+    // Copy all files from standalone/web directly into standalone/ so /workspace/.next/standalone/server.js exists!
+    if (fs.existsSync(webStandaloneInner)) {
+      copyDirRecursive(webStandaloneInner, rootStandaloneDir);
+    }
   }
 
   // 3. Ensure root .next/static is present for CDN asset hosting
@@ -42,14 +51,22 @@ try {
     copyDirRecursive(webStatic, rootStatic);
   }
 
-  // 4. Also copy web/public to root public if needed
-  const webPublic = path.join(rootDir, 'web', 'public');
-  const rootPublic = path.join(rootDir, 'public');
-  if (fs.existsSync(webPublic)) {
-    copyDirRecursive(webPublic, rootPublic);
+  // Also copy static into .next/standalone/.next/static as required by Next standalone server
+  const standaloneStatic = path.join(rootStandaloneDir, '.next', 'static');
+  if (fs.existsSync(webStatic)) {
+    copyDirRecursive(webStatic, standaloneStatic);
   }
 
-  console.log('✓ Successfully synchronized .next, .next/static, and .next/standalone for App Hosting.');
+  // 4. Also copy web/public to root public and standalone/public
+  const webPublic = path.join(rootDir, 'web', 'public');
+  const rootPublic = path.join(rootDir, 'public');
+  const standalonePublic = path.join(rootStandaloneDir, 'public');
+  if (fs.existsSync(webPublic)) {
+    copyDirRecursive(webPublic, rootPublic);
+    copyDirRecursive(webPublic, standalonePublic);
+  }
+
+  console.log('✓ Successfully populated /workspace/.next/standalone/server.js and assets for App Hosting.');
 } catch (err) {
   console.error('Error synchronizing App Hosting bundle:', err);
 }
