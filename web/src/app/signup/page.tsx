@@ -66,7 +66,7 @@ export default function SignupPage() {
       }, 1200);
     } catch (err: any) {
       console.error('Signup error:', err);
-      let msg = err.message || 'Failed to create Firebase account';
+      let msg = err.message || 'Failed to create account. Please check details and try again.';
       if (err.code === 'auth/email-already-in-use') {
         msg = 'An account already exists with this email address.';
       } else if (err.code === 'auth/weak-password') {
@@ -112,13 +112,13 @@ export default function SignupPage() {
             <div>
               <div className="mb-6">
                 <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  Firebase Cloud Authentication
+                  Instant Access Registration
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-2">
                   Create Quickzy Account
                 </h1>
                 <p className="text-xs text-neutral-400 mt-1">
-                  Access point-to-point same-day London delivery
+                  Access point-to-point same-day London delivery & fleet dispatch
                 </p>
               </div>
 
@@ -129,31 +129,42 @@ export default function SignupPage() {
                 </div>
               )}
 
-              {/* Role Selector Tabs */}
-              <div className="grid grid-cols-2 gap-1.5 bg-neutral-950 p-1.5 rounded-2xl mb-5 border border-neutral-800/80">
+              {/* Role Selector Tabs (Customer, Business, Driver) */}
+              <div className="grid grid-cols-3 gap-1 bg-neutral-950 p-1.5 rounded-2xl mb-5 border border-neutral-800/80">
                 <button
                   type="button"
                   onClick={() => setRole('customer')}
-                  className={`py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition ${
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition ${
                     role === 'customer'
                       ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   <User className="w-3.5 h-3.5" />
-                  Individual Customer
+                  Customer
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole('client')}
-                  className={`py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition ${
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition ${
                     role === 'client'
                       ? 'bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  Business Client
+                  Business
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('driver')}
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition ${
+                    role === 'driver'
+                      ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <span>🛵 Driver</span>
                 </button>
               </div>
 
@@ -223,7 +234,7 @@ export default function SignupPage() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <span>Create Firebase Account & Continue</span>
+                        <span>Create Quickzy Account & Continue</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}

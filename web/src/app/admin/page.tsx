@@ -25,8 +25,8 @@ import {
   Loader2,
   Lock,
 } from 'lucide-react';
-import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff } from '@/types/delivery';
-import { fetchAllOrders, updateOrderStatus, createOrder } from '@/lib/orderService';
+import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG } from '@/types/delivery';
+import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig } from '@/lib/orderService';
 
 const ADMIN_AUTHORIZED_EMAIL = 'prajapatikaranc@gmail.com';
 
@@ -54,6 +54,13 @@ export default function AdminDashboardPage() {
   const [newWeight, setNewWeight] = useState(2.0);
   const [newDesc, setNewDesc] = useState('Urgent Admin Dispatch Consignment');
   const [isRestricted, setIsRestricted] = useState(false);
+
+  // Driver Assignment & Pricing Configuration
+  const [pricingConfig, setPricingConfig] = useState<ParcelPricingConfig>(DEFAULT_PRICING_CONFIG);
+  const [pricingSaved, setPricingSaved] = useState(false);
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [driverNameInput, setDriverNameInput] = useState('');
+  const [driverEmailInput, setDriverEmailInput] = useState('');
 
   useEffect(() => {
     // Listen to real Firebase Authentication State
@@ -89,6 +96,25 @@ export default function AdminDashboardPage() {
   const loadOrders = async () => {
     const list = await fetchAllOrders(ADMIN_AUTHORIZED_EMAIL, 'admin');
     setOrders(list);
+    const pcfg = await fetchPricingConfig();
+    setPricingConfig(pcfg);
+  };
+
+  const handleSavePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPricingSaved(false);
+    await savePricingConfig(pricingConfig);
+    setPricingSaved(true);
+    setTimeout(() => setPricingSaved(false), 2500);
+  };
+
+  const handleAssignDriver = async (orderId: string) => {
+    if (!driverNameInput.trim()) return;
+    await updateOrderStatus(orderId, 'out_for_delivery', driverNameInput.trim());
+    setAssigningOrderId(null);
+    setDriverNameInput('');
+    setDriverEmailInput('');
+    loadOrders();
   };
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
@@ -325,24 +351,99 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Total User Orders</span>
-                <p className="text-2xl font-black text-white">{orders.length}</p>
+            {/* Pricing Metrics Configurator for Admin */}
+            <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-neutral-800 gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    London Parcel & Booking Pricing Metrics
+                  </h3>
+                  <p className="text-xs text-neutral-400">
+                    Set base fee, mileage rate, and surcharge metrics used across all user bookings.
+                  </p>
+                </div>
+                {pricingSaved && (
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full flex items-center gap-1.5 self-start sm:self-auto">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Saved to Firestore!
+                  </span>
+                )}
               </div>
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Active Transit Jobs</span>
-                <p className="text-2xl font-black text-cyan-400">{activeDeliveries}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">Total Real Revenue</span>
-                <p className="text-2xl font-black text-emerald-400">£{totalRevenue.toFixed(2)}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <span className="text-xs text-neutral-400">London Cutoff</span>
-                <p className="text-sm font-bold text-neutral-200 mt-1">14:00 GMT Daily</p>
-              </div>
+
+              <form onSubmit={handleSavePricing} className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-neutral-400 block font-semibold">Base Fee (£)</label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={(pricingConfig.baseFeePence / 100).toFixed(2)}
+                    onChange={(e) =>
+                      setPricingConfig({
+                        ...pricingConfig,
+                        baseFeePence: Math.round(parseFloat(e.target.value || '0') * 100),
+                      })
+                    }
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-neutral-400 block font-semibold">Per Mile (£)</label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={(pricingConfig.perMilePence / 100).toFixed(2)}
+                    onChange={(e) =>
+                      setPricingConfig({
+                        ...pricingConfig,
+                        perMilePence: Math.round(parseFloat(e.target.value || '0') * 100),
+                      })
+                    }
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-neutral-400 block font-semibold">Weight &gt;2kg/kg (£)</label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={(pricingConfig.weightPerKgAbove2KgPence / 100).toFixed(2)}
+                    onChange={(e) =>
+                      setPricingConfig({
+                        ...pricingConfig,
+                        weightPerKgAbove2KgPence: Math.round(parseFloat(e.target.value || '0') * 100),
+                      })
+                    }
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-neutral-400 block font-semibold">Volumetric/kg (£)</label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={(pricingConfig.volumetricRatePence / 100).toFixed(2)}
+                    onChange={(e) =>
+                      setPricingConfig({
+                        ...pricingConfig,
+                        volumetricRatePence: Math.round(parseFloat(e.target.value || '0') * 100),
+                      })
+                    }
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+
+                <div className="space-y-1 col-span-2 sm:col-span-1 flex flex-col justify-end">
+                  <button
+                    type="submit"
+                    className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                  >
+                    Save Metrics
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Create Order Drawer */}
@@ -542,22 +643,38 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="p-3.5">
-                        <div className="flex gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {order.status === 'booked' && (
-                            <button
-                              onClick={() => handleStatusChange(order.id, 'collected')}
-                              className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded text-[10px] font-bold"
-                            >
-                              Collect
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'collected')}
+                                className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded text-[10px] font-bold"
+                              >
+                                Collect
+                              </button>
+                              <button
+                                onClick={() => setAssigningOrderId(order.id)}
+                                className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold"
+                              >
+                                Assign Driver
+                              </button>
+                            </>
                           )}
                           {order.status === 'collected' && (
-                            <button
-                              onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
-                              className="px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded text-[10px] font-bold"
-                            >
-                              Dispatch
-                            </button>
+                            <>
+                              <button
+                                onClick={() => setAssigningOrderId(order.id)}
+                                className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold"
+                              >
+                                Assign Driver
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
+                                className="px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded text-[10px] font-bold"
+                              >
+                                Dispatch
+                              </button>
+                            </>
                           )}
                           {order.status === 'out_for_delivery' && (
                             <button
@@ -572,12 +689,48 @@ export default function AdminDashboardPage() {
                               <CheckCircle2 className="w-3 h-3" /> Done
                             </span>
                           )}
+                          {order.assignedDriverName && (
+                            <span className="text-[9px] text-neutral-400 block font-mono">
+                              Driver: {order.assignedDriverName}
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              {/* Driver Assignment Modal */}
+              {assigningOrderId && (
+                <div className="p-4 bg-neutral-950 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in">
+                  <div className="text-xs">
+                    <span className="font-bold text-white">Assign Driver to Order #{assigningOrderId}:</span>
+                    <p className="text-[11px] text-neutral-400">Select or type driver name & area dispatch unit.</p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      placeholder="e.g. Liam (Central London Bike #3)"
+                      value={driverNameInput}
+                      onChange={(e) => setDriverNameInput(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
+                    />
+                    <button
+                      onClick={() => handleAssignDriver(assigningOrderId)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                    >
+                      Assign & Dispatch
+                    </button>
+                    <button
+                      onClick={() => setAssigningOrderId(null)}
+                      className="px-2 py-1.5 text-xs text-neutral-400 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {filteredOrders.length === 0 && (
                 <div className="p-8 text-center text-xs text-neutral-500">

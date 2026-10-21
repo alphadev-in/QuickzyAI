@@ -14,9 +14,22 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  Package,
 } from 'lucide-react';
+import { QuickzyOrder, OrderStatus } from '@/types/delivery';
+import { updateOrderStatus } from '@/lib/orderService';
 
-export const DriverCockpit: React.FC = () => {
+interface DriverCockpitProps {
+  currentUserEmail?: string;
+  assignedOrders?: QuickzyOrder[];
+  onRefreshOrders?: () => void;
+}
+
+export const DriverCockpit: React.FC<DriverCockpitProps> = ({
+  currentUserEmail,
+  assignedOrders = [],
+  onRefreshOrders,
+}) => {
   const { activeTrip, verifyWaypointHandshake, setActiveRole, setSelectedMerchantId } = useApp();
 
   const [activeModalWaypointId, setActiveModalWaypointId] = useState<string | null>(null);
@@ -26,28 +39,22 @@ export const DriverCockpit: React.FC = () => {
     sealIntact: false,
   });
 
-  if (!activeTrip) {
-    return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-neutral-800 text-neutral-400 flex items-center justify-center mx-auto">
-          <Bike className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-bold text-white">No Active Delivery Trips</h2>
-        <p className="text-sm text-neutral-400">
-          Go to the Storefront or Route Batcher to dispatch a neighborhood delivery.
-        </p>
-        <button
-          onClick={() => setActiveRole('customer')}
-          className="px-4 py-2 bg-emerald-500 text-neutral-950 rounded-xl font-bold text-xs"
-        >
-          Go to Storefront
-        </button>
-      </div>
-    );
-  }
+  // Filter orders assigned to this driver or active London parcel orders
+  const driverParcels = assignedOrders.filter(
+    (o) =>
+      o.assignedDriverEmail === currentUserEmail ||
+      (o.assignedDriverName && currentUserEmail && o.assignedDriverName.toLowerCase().includes(currentUserEmail.split('@')[0].toLowerCase())) ||
+      o.status === 'out_for_delivery' ||
+      o.status === 'collected'
+  );
 
-  const currentWp = activeTrip.waypoints[activeTrip.currentWaypointIndex];
-  const isTripCompleted = activeTrip.status === 'completed';
+  const handleDriverStatusUpdate = async (orderId: string, nextStatus: OrderStatus) => {
+    await updateOrderStatus(orderId, nextStatus, currentUserEmail || 'Assigned Courier');
+    if (onRefreshOrders) onRefreshOrders();
+  };
+
+  const currentWp = activeTrip ? activeTrip.waypoints[activeTrip.currentWaypointIndex] : null;
+  const isTripCompleted = activeTrip ? activeTrip.status === 'completed' : false;
 
   const handleOpenScanner = (waypointId: string) => {
     setActiveModalWaypointId(waypointId);
@@ -74,39 +81,93 @@ export const DriverCockpit: React.FC = () => {
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                {activeTrip.id}
+                {activeTrip?.id || 'ACTIVE COURIER FLEET'}
               </span>
               <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full border border-neutral-700">
-                {activeTrip.driverVehicle}
+                {activeTrip?.driverVehicle || 'E-Cargo Bike & Rapid Van'}
               </span>
             </div>
-            <h2 className="text-xl font-extrabold text-white mt-0.5">{activeTrip.driverName}</h2>
+            <h2 className="text-xl font-extrabold text-white mt-0.5">{activeTrip?.driverName || currentUserEmail || 'London Courier'}</h2>
             <p className="text-xs text-neutral-400">
-              Assigned Route: {activeTrip.waypoints.length} Waypoints ({activeTrip.totalDistanceKm} km total)
+              Assigned Route: {activeTrip?.waypoints.length || 0} Waypoints ({activeTrip?.totalDistanceKm || 0} km total)
             </p>
-          </div>
-        </div>
-
-        {/* Cold-Chain Transit Timer Box */}
-        <div className="bg-cyan-950/50 border border-cyan-800/80 rounded-2xl p-3 flex items-center space-x-3">
-          <Snowflake className="w-6 h-6 text-cyan-400 animate-spin" />
-          <div className="text-xs">
-            <p className="text-cyan-400 font-bold">Cold-Chain SLA Cap</p>
-            <p className="text-white font-mono font-bold">25:00 max in transit</p>
           </div>
         </div>
       </div>
 
-      {/* Sequential Route Waypoints */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">
-          Waypoint Sequence (Optimized Corridor Order)
-        </h3>
+      {/* Assigned Real Firestore Parcels */}
+      {driverParcels.length > 0 && (
+        <div className="bg-neutral-900 rounded-3xl p-6 border border-emerald-500/40 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Package className="w-4 h-4 text-emerald-400" />
+              <span>Assigned London Parcels ({driverParcels.length})</span>
+            </h3>
+            <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+              LIVE DISPATCH
+            </span>
+          </div>
 
-        <div className="space-y-3">
-          {activeTrip.waypoints.map((wp, index) => {
-            const isCurrent = activeTrip.currentWaypointIndex === index && !isTripCompleted;
-            const isCompleted = wp.status === 'completed';
+          <div className="space-y-2.5">
+            {driverParcels.map((parcel) => (
+              <div
+                key={parcel.id}
+                className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-white">{parcel.id}</span>
+                    <span className="uppercase text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                      {parcel.type}
+                    </span>
+                    <span className="text-emerald-400 font-bold">£{parcel.priceGbp.toFixed(2)}</span>
+                  </div>
+                  <p className="text-neutral-400 mt-1">
+                    <strong className="text-neutral-300">Pickup:</strong> {parcel.pickupAddress.line1} ({parcel.pickupAddress.postcode}) ➔{' '}
+                    <strong className="text-neutral-300">Dropoff:</strong> {parcel.dropoffAddress.line1} ({parcel.dropoffAddress.postcode})
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {parcel.status === 'collected' && (
+                    <button
+                      onClick={() => handleDriverStatusUpdate(parcel.id, 'out_for_delivery')}
+                      className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-bold text-xs"
+                    >
+                      Start Delivery
+                    </button>
+                  )}
+                  {parcel.status === 'out_for_delivery' && (
+                    <button
+                      onClick={() => handleDriverStatusUpdate(parcel.id, 'delivered')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                    >
+                      Mark Delivered
+                    </button>
+                  )}
+                  {parcel.status === 'delivered' && (
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sequential Route Waypoints */}
+      {activeTrip && activeTrip.waypoints && activeTrip.waypoints.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">
+            Waypoint Sequence (Optimized Corridor Order)
+          </h3>
+
+          <div className="space-y-3">
+            {activeTrip.waypoints.map((wp, index) => {
+              const isCurrent = activeTrip.currentWaypointIndex === index && !isTripCompleted;
+              const isCompleted = wp.status === 'completed';
 
             return (
               <div
@@ -204,6 +265,7 @@ export const DriverCockpit: React.FC = () => {
           })}
         </div>
       </div>
+      )}
 
       {/* Driver Handshake & Cold-Chain Checklist Modal */}
       {activeModalWaypointId && (
@@ -229,7 +291,7 @@ export const DriverCockpit: React.FC = () => {
                 <span className="text-[10px] text-emerald-400 font-mono">SCANNING...</span>
               </div>
               <p className="text-xs text-neutral-400">
-                Align the merchant's tablet QR code within the frame to verify handover.
+                Align the merchant&apos;s tablet QR code within the frame to verify handover.
               </p>
             </div>
 

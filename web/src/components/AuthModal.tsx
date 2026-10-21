@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UserRole } from '@/types/delivery';
+import { AddressItem, UserRole } from '@/types/delivery';
 import { auth, db } from '@/lib/firebase';
 import {
   signInWithEmailAndPassword,
@@ -9,7 +9,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { User, ShieldCheck, Building2, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { User, ShieldCheck, Building2, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle, Loader2, MapPin, ExternalLink } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,6 +17,8 @@ interface AuthModalProps {
   currentUser: { email: string; role: UserRole; name: string; companyName?: string } | null;
   onLogin: (user: { email: string; role: UserRole; name: string; companyName?: string }) => void;
   onLogout: () => void;
+  savedAddresses?: AddressItem[];
+  onOpenAddressBook?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -25,6 +27,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   onLogin,
   onLogout,
+  savedAddresses = [],
+  onOpenAddressBook,
 }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState<UserRole>('customer');
@@ -111,24 +115,87 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </button>
 
         {currentUser ? (
-          <div className="text-center py-4 space-y-4">
-            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="py-2 space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-neutral-800">
+              <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center text-xl font-bold">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-bold text-white">{currentUser.name}</h3>
+                <p className="text-xs text-neutral-400 font-mono">{currentUser.email}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    Role: {currentUser.role}
+                  </span>
+                  {currentUser.companyName && (
+                    <span className="text-[10px] text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full bg-cyan-500/10">
+                      {currentUser.companyName}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">{currentUser.name}</h3>
-              <p className="text-xs text-neutral-400 font-mono mt-0.5">{currentUser.email}</p>
-              <span className="inline-block mt-2.5 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Active Role: {currentUser.role}
-              </span>
-              {currentUser.companyName && (
-                <p className="text-xs text-neutral-400 mt-2">Company: {currentUser.companyName}</p>
+
+            {/* Saved London Addresses Section */}
+            <div className="text-left space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                  Saved London Addresses ({savedAddresses.length})
+                </span>
+                {onOpenAddressBook && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenAddressBook();
+                    }}
+                    className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  >
+                    <span>Manage Addresses</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {savedAddresses.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                  {savedAddresses.map((addr) => (
+                    <div
+                      key={addr.id}
+                      className="p-2.5 rounded-xl bg-neutral-950 border border-neutral-800/80 text-xs flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-bold text-neutral-200">{addr.label || 'Saved Location'}</p>
+                        <p className="text-neutral-400 text-[11px]">{addr.line1}, {addr.postcode}</p>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                        {addr.postcode}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-center text-xs text-neutral-400">
+                  <p>No saved addresses yet.</p>
+                  {onOpenAddressBook && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenAddressBook();
+                      }}
+                      className="mt-1 text-emerald-400 font-bold hover:underline"
+                    >
+                      + Add your first London address
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-            <div className="pt-4 flex gap-3">
+
+            <div className="pt-2 flex gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-200 hover:bg-neutral-700 text-xs font-bold"
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-200 hover:bg-neutral-700 text-xs font-bold cursor-pointer transition"
               >
                 Close
               </button>
@@ -137,7 +204,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   onLogout();
                   onClose();
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 text-xs font-bold"
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 text-xs font-bold cursor-pointer transition"
               >
                 Sign Out
               </button>
@@ -147,13 +214,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div>
             <div className="mb-6">
               <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Firebase Cloud Auth
+                Secure Account Access
               </span>
               <h2 className="text-2xl font-black text-white tracking-tight mt-2">
                 {isSignUp ? 'Create Quickzy Account' : 'Sign in to Quickzy'}
               </h2>
               <p className="text-xs text-neutral-400 mt-1">
-                Fast same-day London delivery platform
+                Fast same-day London delivery & dispatch platform
               </p>
             </div>
 
@@ -164,32 +231,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* Role Selector Tabs (During Sign Up) */}
+            {/* Role Selector Tabs (Customer, Business Client, Driver) */}
             {isSignUp && (
-              <div className="grid grid-cols-2 gap-1 bg-neutral-950 p-1.5 rounded-2xl mb-5 border border-neutral-800">
+              <div className="grid grid-cols-3 gap-1 bg-neutral-950 p-1.5 rounded-2xl mb-5 border border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setRole('customer')}
-                  className={`py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition ${
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition ${
                     role === 'customer'
                       ? 'bg-emerald-500 text-neutral-950 shadow-sm'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  <User className="w-3.5 h-3.5" />
+                  <User className="w-3 h-3" />
                   Customer
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole('client')}
-                  className={`py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition ${
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition ${
                     role === 'client'
                       ? 'bg-cyan-500 text-neutral-950 shadow-sm'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  <Building2 className="w-3.5 h-3.5" />
-                  Business Client
+                  <Building2 className="w-3 h-3" />
+                  Business
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('driver')}
+                  className={`py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition ${
+                    role === 'driver'
+                      ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <span>🛵 Driver</span>
                 </button>
               </div>
             )}
@@ -260,7 +338,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <span>{isSignUp ? 'Create Firebase Account' : 'Sign In with Firebase'}</span>
+                    <span>{isSignUp ? 'Create Quickzy Account' : 'Sign In to Quickzy'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

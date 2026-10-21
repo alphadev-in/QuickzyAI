@@ -18,7 +18,45 @@ import {
   calculateDeliveryPrice,
   evaluateSameDayCutoff,
   UserRole,
+  ParcelPricingConfig,
+  DEFAULT_PRICING_CONFIG,
 } from '@/types/delivery';
+
+export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
+  try {
+    const snap = await getDoc(doc(db, 'system_settings', 'pricing'));
+    if (snap.exists()) {
+      return snap.data() as ParcelPricingConfig;
+    }
+  } catch (err) {
+    console.warn('Failed to load pricing config from Firestore, using default:', err);
+  }
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem('quickzy_pricing_config');
+    if (local) {
+      try {
+        return JSON.parse(local);
+      } catch {}
+    }
+  }
+  return DEFAULT_PRICING_CONFIG;
+}
+
+export async function savePricingConfig(config: ParcelPricingConfig): Promise<boolean> {
+  try {
+    await setDoc(doc(db, 'system_settings', 'pricing'), config);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('quickzy_pricing_config', JSON.stringify(config));
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to save pricing config to Firestore:', err);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('quickzy_pricing_config', JSON.stringify(config));
+    }
+    return false;
+  }
+}
 
 // Address Book API: Exclusively writes and reads Firestore
 export async function saveAddress(userId: string, address: Omit<AddressItem, 'id'>): Promise<AddressItem> {
@@ -79,19 +117,23 @@ export async function createOrder(
   userId: string,
   userEmail: string,
   role: UserRole,
-  orderData: Parameters<typeof CreateOrderSchema.parse>[0]
+  orderData: Parameters<typeof CreateOrderSchema.parse>[0],
+  pricingConfig?: ParcelPricingConfig
 ): Promise<QuickzyOrder> {
   const validated = CreateOrderSchema.parse(orderData);
   const cutoffInfo = evaluateSameDayCutoff();
 
-  const quote = calculateDeliveryPrice({
-    type: validated.type,
-    weightKg: validated.parcel?.weightKg,
-    lengthCm: validated.parcel?.lengthCm,
-    widthCm: validated.parcel?.widthCm,
-    heightCm: validated.parcel?.heightCm,
-    isRestricted: validated.parcel?.isRestricted,
-  });
+  const quote = calculateDeliveryPrice(
+    {
+      type: validated.type,
+      weightKg: validated.parcel?.weightKg,
+      lengthCm: validated.parcel?.lengthCm,
+      widthCm: validated.parcel?.widthCm,
+      heightCm: validated.parcel?.heightCm,
+      isRestricted: validated.parcel?.isRestricted,
+    },
+    pricingConfig || DEFAULT_PRICING_CONFIG
+  );
 
   const orderId = `QZK-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
   const now = new Date().toISOString();

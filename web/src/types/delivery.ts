@@ -60,6 +60,7 @@ export interface QuickzyOrder {
   updatedAt: string;
   assignedDriverId?: string;
   assignedDriverName?: string;
+  assignedDriverEmail?: string;
   invoiceId?: string;
   bulkImportId?: string;
 }
@@ -121,41 +122,60 @@ export function evaluateSameDayCutoff(requestedDate?: Date): {
   };
 }
 
+export interface ParcelPricingConfig {
+  baseFeePence: number;
+  perMilePence: number;
+  weightPerKgAbove2KgPence: number;
+  volumetricRatePence: number;
+  restrictedHandlingPence: number;
+}
+
+export const DEFAULT_PRICING_CONFIG: ParcelPricingConfig = {
+  baseFeePence: 450,
+  perMilePence: 120,
+  weightPerKgAbove2KgPence: 50,
+  volumetricRatePence: 40,
+  restrictedHandlingPence: 350,
+};
+
 // Calculate delivery price based on London zones / distance and parcel specs
-export function calculateDeliveryPrice(params: {
-  type: BookingType;
-  weightKg?: number;
-  lengthCm?: number;
-  widthCm?: number;
-  heightCm?: number;
-  isRestricted?: boolean;
-  estimatedMiles?: number;
-}): PriceQuote {
+export function calculateDeliveryPrice(
+  params: {
+    type: BookingType;
+    weightKg?: number;
+    lengthCm?: number;
+    widthCm?: number;
+    heightCm?: number;
+    isRestricted?: boolean;
+    estimatedMiles?: number;
+  },
+  config: ParcelPricingConfig = DEFAULT_PRICING_CONFIG
+): PriceQuote {
   const miles = Math.max(1, params.estimatedMiles || 3.5);
-  let baseFee = 450; // £4.50 base
+  let baseFee = config.baseFeePence;
 
   if (params.type === 'pharmacy') {
-    baseFee = 550; // Priority handled
+    baseFee = Math.round(config.baseFeePence * 1.2);
   } else if (params.type === 'food') {
-    baseFee = 400; // Rapid insulated
+    baseFee = Math.round(config.baseFeePence * 0.9);
   }
 
-  // £1.20 per mile
-  const distanceFee = Math.round(miles * 120);
+  // Dynamic distance fee per mile
+  const distanceFee = Math.round(miles * config.perMilePence);
 
-  // Weight fee: £0.50 per kg above 2kg
+  // Weight fee: per kg above 2kg
   const weight = params.weightKg || 1;
-  const weightFee = weight > 2 ? Math.round((weight - 2) * 50) : 0;
+  const weightFee = weight > 2 ? Math.round((weight - 2) * config.weightPerKgAbove2KgPence) : 0;
 
   // Volumetric check: (L x W x H) / 5000
   const l = params.lengthCm || 10;
   const w = params.widthCm || 10;
   const h = params.heightCm || 10;
   const volumetricWeight = (l * w * h) / 5000;
-  const volumetricFee = volumetricWeight > 3 ? Math.round((volumetricWeight - 3) * 40) : 0;
+  const volumetricFee = volumetricWeight > 3 ? Math.round((volumetricWeight - 3) * config.volumetricRatePence) : 0;
 
   // Restricted items verification & compliance fee
-  const restrictedHandlingFee = params.isRestricted ? 350 : 0;
+  const restrictedHandlingFee = params.isRestricted ? config.restrictedHandlingPence : 0;
 
   const totalPence = baseFee + distanceFee + weightFee + volumetricFee + restrictedHandlingFee;
 

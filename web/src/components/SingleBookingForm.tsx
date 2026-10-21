@@ -48,6 +48,19 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
 }) => {
   // Booking Type: pharmacy | food | parcel
   const [bookingType, setBookingType] = useState<BookingType>('parcel');
+  const [lockedStream, setLockedStream] = useState<BookingType | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pref = localStorage.getItem('quickzy_preferred_stream') as BookingType | null;
+      if (pref && (pref === 'pharmacy' || pref === 'food' || pref === 'parcel')) {
+        setBookingType(pref);
+        if (role === 'client') {
+          setLockedStream(pref);
+        }
+      }
+    }
+  }, [role]);
 
   // Addresses
   const [pickupLine1, setPickupLine1] = useState(
@@ -260,62 +273,68 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
       {/* 1. Category Switcher */}
       <div className="mt-6">
         <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider mb-2 block">
-          1. Select Delivery Stream
+          1. Select Delivery Stream {lockedStream && <span className="text-emerald-400 font-mono">(Locked to Your Business Profile: {lockedStream.toUpperCase()})</span>}
         </label>
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => setBookingType('pharmacy')}
-            className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
-              bookingType === 'pharmacy'
-                ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
-            }`}
-          >
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <Pill className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold">Pharmacy</p>
-              <p className="text-[10px] opacity-70">Prescriptions & Medical</p>
-            </div>
-          </button>
+        <div className={`grid ${lockedStream ? 'grid-cols-1 max-w-sm' : 'grid-cols-3'} gap-3`}>
+          {(!lockedStream || lockedStream === 'pharmacy') && (
+            <button
+              type="button"
+              onClick={() => setBookingType('pharmacy')}
+              className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
+                bookingType === 'pharmacy'
+                  ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                  : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Pill className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold">Pharmacy</p>
+                <p className="text-[10px] opacity-70">Prescriptions & Medical</p>
+              </div>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setBookingType('food')}
-            className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
-              bookingType === 'food'
-                ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
-            }`}
-          >
-            <div className="w-9 h-9 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold">Food & Groceries</p>
-              <p className="text-[10px] opacity-70">Hot, Chilled, or Fresh</p>
-            </div>
-          </button>
+          {(!lockedStream || lockedStream === 'food') && (
+            <button
+              type="button"
+              onClick={() => setBookingType('food')}
+              className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
+                bookingType === 'food'
+                  ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                  : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+                <Utensils className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold">Food & Groceries</p>
+                <p className="text-[10px] opacity-70">Hot, Chilled, or Fresh</p>
+              </div>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setBookingType('parcel')}
-            className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
-              bookingType === 'parcel'
-                ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
-            }`}
-          >
-            <div className="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
-              <Package className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold">Parcel & Freight</p>
-              <p className="text-[10px] opacity-70">B2B / B2C Rapid Transit</p>
-            </div>
-          </button>
+          {(!lockedStream || lockedStream === 'parcel') && (
+            <button
+              type="button"
+              onClick={() => setBookingType('parcel')}
+              className={`p-3.5 rounded-xl border text-left transition flex items-center gap-3 ${
+                bookingType === 'parcel'
+                  ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                  : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                <Package className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold">Parcel & Freight</p>
+                <p className="text-[10px] opacity-70">B2B / B2C Rapid Transit</p>
+              </div>
+            </button>
+          )}
         </div>
       </div>
 

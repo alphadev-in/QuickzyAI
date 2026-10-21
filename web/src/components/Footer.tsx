@@ -96,6 +96,11 @@ export const Footer: React.FC<FooterProps> = ({ currentUser }) => {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Company & Legal</h4>
             <ul className="space-y-1.5 text-neutral-400 text-xs">
               <li>
+                <Link href="/faq" className="hover:text-emerald-400 transition">
+                  Frequently Asked Questions (FAQ)
+                </Link>
+              </li>
+              <li>
                 <Link href="/privacy" className="hover:text-emerald-400 transition">
                   Privacy Policy
                 </Link>

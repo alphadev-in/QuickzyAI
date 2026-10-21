@@ -203,10 +203,13 @@ function MainApplicationContent() {
             <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
 
             <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/10">
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                <span>London&apos;s Dedicated Same-Day Rapid Logistics Network</span>
-              </div>
+              {/* London rapid logistics network badge - hidden for business clients once signed in */}
+              {(!currentUser || currentUser.role !== 'client') && (
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold shadow-lg shadow-emerald-500/10">
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                  <span>London&apos;s Dedicated Same-Day Rapid Logistics Network</span>
+                </div>
+              )}
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
                 Point-to-Point London Courier for{' '}
@@ -301,7 +304,7 @@ function MainApplicationContent() {
                 <span className="text-xs font-mono font-bold text-emerald-400">01. Authenticate</span>
                 <p className="text-xs font-bold text-white">Sign In or Register</p>
                 <p className="text-[11px] text-neutral-400">
-                  Secure Firebase Authentication stores all your London addresses and orders in Firestore.
+                  Quickzy Cloud Authentication stores all your London addresses and orders securely.
                 </p>
               </div>
 
@@ -439,16 +442,27 @@ function MainApplicationContent() {
 
           {activeTab === 'storefront' && <CustomerStorefront />}
           {activeTab === 'merchant' && <MerchantPortal />}
-          {activeTab === 'driver' && <DriverCockpit />}
+          {activeTab === 'driver' && (
+            <DriverCockpit
+              currentUserEmail={currentUser?.email}
+              assignedOrders={orders}
+              onRefreshOrders={loadData}
+            />
+          )}
           {activeTab === 'dispatch' && <RouteBatcherCockpit />}
         </main>
       )}
 
-      {/* Auth Modal */}
+      {/* Auth & Profile Modal */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         currentUser={currentUser}
+        savedAddresses={savedAddresses}
+        onOpenAddressBook={() => {
+          setAddressSelectionMode(null);
+          setIsAddressBookOpen(true);
+        }}
         onLogin={(user) => {
           setCurrentUser(user);
           setActiveTab('booking');

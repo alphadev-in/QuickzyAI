@@ -28,14 +28,38 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && (request.auth.token.email == resource.data.userId || request.auth.uid == resource.data.userId || isAdmin());
     }
 
+    // System Settings (Pricing metrics config)
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Drivers collection
+    match /drivers/{driverId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (request.auth.uid == driverId || isAdmin());
+    }
+
     // Orders Collection
     match /orders/{orderId} {
-      // Users can only read their own orders; admin can read all orders
-      allow read: if isAuthenticated() && (request.auth.token.email == resource.data.userId || request.auth.token.email == resource.data.userEmail || request.auth.uid == resource.data.userId || isAdmin());
-      // Users can create orders for themselves; admin can create any order
+      // Users can only read their own orders; admin and assigned drivers can also read
+      allow read: if isAuthenticated() && (
+        request.auth.token.email == resource.data.userId ||
+        request.auth.token.email == resource.data.userEmail ||
+        request.auth.uid == resource.data.userId ||
+        request.auth.token.email == resource.data.assignedDriverEmail ||
+        request.auth.uid == resource.data.assignedDriverId ||
+        isAdmin()
+      );
+      // Authenticated users can create orders
       allow create: if isAuthenticated();
-      // Only admin or the assigned party can update order status
-      allow update: if isAuthenticated() && (isAdmin() || request.auth.token.email == resource.data.userId);
+      // Only admin, owner, or assigned driver can update order status
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        request.auth.token.email == resource.data.userId ||
+        request.auth.token.email == resource.data.assignedDriverEmail ||
+        request.auth.uid == resource.data.assignedDriverId
+      );
       allow delete: if isAdmin();
     }
 

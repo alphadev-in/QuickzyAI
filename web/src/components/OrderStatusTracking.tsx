@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   UserCheck,
   FileText,
+  MapPin,
 } from 'lucide-react';
+import { OpenStreetMapViewer } from './OpenStreetMapViewer';
 
 interface OrderStatusTrackingProps {
   orders: QuickzyOrder[];
@@ -29,16 +31,29 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
   onRefreshOrders,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<QuickzyOrder | null>(orders[0] || null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orders[0]?.id || null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Sync selected order with latest orders
+  React.useEffect(() => {
+    if (orders.length > 0 && (!selectedOrderId || !orders.some((o) => o.id === selectedOrderId))) {
+      setSelectedOrderId(orders[0].id);
+    }
+  }, [orders, selectedOrderId]);
+
+  const selectedOrder = orders.find((o) => o.id === selectedOrderId) || orders[0] || null;
+
   const filteredOrders = orders.filter((o) => {
+    if (!o || !o.id) return false;
     const q = searchQuery.toLowerCase();
+    const pk = o.pickupAddress?.postcode || '';
+    const dp = o.dropoffAddress?.postcode || '';
+    const tp = o.type || '';
     return (
       o.id.toLowerCase().includes(q) ||
-      o.pickupAddress.postcode.toLowerCase().includes(q) ||
-      o.dropoffAddress.postcode.toLowerCase().includes(q) ||
-      o.type.toLowerCase().includes(q)
+      pk.toLowerCase().includes(q) ||
+      dp.toLowerCase().includes(q) ||
+      tp.toLowerCase().includes(q)
     );
   });
 
@@ -104,7 +119,7 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
             return (
               <div
                 key={order.id}
-                onClick={() => setSelectedOrder(order)}
+                onClick={() => setSelectedOrderId(order.id)}
                 className={`p-3.5 rounded-xl border transition cursor-pointer ${
                   isSelected
                     ? 'border-emerald-500 bg-neutral-950 shadow-md shadow-emerald-500/10'
@@ -239,6 +254,28 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                     {selectedOrder.dropoffAddress.city}, {selectedOrder.dropoffAddress.postcode}
                   </p>
                 </div>
+              </div>
+
+              {/* Native OpenStreetMap Routing & Location Display */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-neutral-300">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Live London Dispatch Route (OpenStreetMap)</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-mono">
+                    {selectedOrder.pickupAddress.postcode} ➔ {selectedOrder.dropoffAddress.postcode}
+                  </span>
+                </div>
+                <OpenStreetMapViewer
+                  pickupLat={selectedOrder.pickupAddress.lat || 51.5074}
+                  pickupLng={selectedOrder.pickupAddress.lng || -0.1278}
+                  pickupLabel={`${selectedOrder.pickupAddress.line1} (${selectedOrder.pickupAddress.postcode})`}
+                  dropoffLat={selectedOrder.dropoffAddress.lat || 51.5155}
+                  dropoffLng={selectedOrder.dropoffAddress.lng || -0.1419}
+                  dropoffLabel={`${selectedOrder.dropoffAddress.line1} (${selectedOrder.dropoffAddress.postcode})`}
+                  className="h-56"
+                />
               </div>
 
               {selectedOrder.parcel && (

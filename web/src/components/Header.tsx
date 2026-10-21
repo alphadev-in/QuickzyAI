@@ -71,73 +71,83 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Tabs */}
-          <nav className="hidden lg:flex items-center bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800/80 shadow-inner">
-            <button
-              onClick={() => handleTabClick('booking')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                activeTab === 'booking'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <CalendarCheck className="w-3.5 h-3.5" />
-              <span>Book Courier</span>
-            </button>
-
-            <button
-              onClick={() => handleTabClick('bulk')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                activeTab === 'bulk'
-                  ? 'bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Bulk CSV</span>
-            </button>
-
-            <button
-              onClick={() => handleTabClick('tracking')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                activeTab === 'tracking'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Tracking</span>
-            </button>
-
-            <button
-              onClick={() => handleTabClick('storefront')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                activeTab === 'storefront'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Stores</span>
-              {totalItems > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 bg-neutral-950 text-white rounded-full text-[10px]">
-                  {totalItems}
-                </span>
+          {/* Desktop Navigation Tabs - Strictly Hidden Until Login */}
+          {currentUser && (
+            <nav className="hidden lg:flex items-center bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800/80 shadow-inner">
+              {/* Customer & Business: Book Courier */}
+              {(currentUser.role === 'customer' || currentUser.role === 'client' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('booking')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'booking'
+                      ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <CalendarCheck className="w-3.5 h-3.5" />
+                  <span>Book Courier</span>
+                </button>
               )}
-            </button>
 
-            <button
-              onClick={() => handleTabClick('dispatch')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                activeTab === 'dispatch'
-                  ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Fleet Batcher</span>
-            </button>
-          </nav>
+              {/* Business Client & Admin: Bulk CSV */}
+              {(currentUser.role === 'client' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('bulk')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'bulk'
+                      ? 'bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20 font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Bulk CSV</span>
+                </button>
+              )}
+
+              {/* Tracking for Customer, Client, Admin */}
+              <button
+                onClick={() => handleTabClick('tracking')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'tracking'
+                    ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>My Orders & Tracking</span>
+              </button>
+
+              {/* Driver View */}
+              {(currentUser.role === 'driver' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('driver')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'driver'
+                      ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20 font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  <span>Driver Console</span>
+                </button>
+              )}
+
+              {/* Admin Dispatcher */}
+              {currentUser.role === 'admin' && (
+                <button
+                  onClick={() => handleTabClick('dispatch')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'dispatch'
+                      ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20 font-bold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Fleet Dispatch</span>
+                </button>
+              )}
+            </nav>
+          )}
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
@@ -204,75 +214,102 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={() => handleTabClick('booking')}
-            className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
-              activeTab === 'booking' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4" />
-              <span>Book Courier (Pharmacy, Food, Parcel)</span>
-            </div>
-          </button>
+          {currentUser ? (
+            <>
+              {(currentUser.role === 'customer' || currentUser.role === 'client' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('booking')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
+                    activeTab === 'booking' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <CalendarCheck className="w-4 h-4" />
+                    <span>Book Courier</span>
+                  </div>
+                </button>
+              )}
 
-          <button
-            onClick={() => handleTabClick('bulk')}
-            className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
-              activeTab === 'bulk' ? 'bg-cyan-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Bulk CSV Importer</span>
-            </div>
-          </button>
+              {(currentUser.role === 'client' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('bulk')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
+                    activeTab === 'bulk' ? 'bg-cyan-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Bulk CSV Importer</span>
+                  </div>
+                </button>
+              )}
 
-          <button
-            onClick={() => handleTabClick('tracking')}
-            className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
-              activeTab === 'tracking' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              <span>Order Status & Tracking</span>
-            </div>
-          </button>
+              <button
+                onClick={() => handleTabClick('tracking')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
+                  activeTab === 'tracking' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  <span>Order Status & Tracking</span>
+                </div>
+              </button>
 
-          <button
-            onClick={() => handleTabClick('storefront')}
-            className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
-              activeTab === 'storefront' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4" />
-              <span>High-Street Independent Stores</span>
-            </div>
-            {totalItems > 0 && <span className="bg-emerald-500 text-black px-2 py-0.5 rounded-full">{totalItems}</span>}
-          </button>
+              {(currentUser.role === 'driver' || currentUser.role === 'admin') && (
+                <button
+                  onClick={() => handleTabClick('driver')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
+                    activeTab === 'driver' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Bike className="w-4 h-4" />
+                    <span>Driver Console</span>
+                  </div>
+                </button>
+              )}
 
-          <button
-            onClick={() => handleTabClick('dispatch')}
-            className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
-              activeTab === 'dispatch' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Compass className="w-4 h-4" />
-              <span>Fleet Dispatch Cockpit</span>
+              {currentUser.role === 'admin' && (
+                <button
+                  onClick={() => handleTabClick('dispatch')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-bold ${
+                    activeTab === 'dispatch' ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-300 bg-neutral-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Compass className="w-4 h-4" />
+                    <span>Fleet Dispatch Cockpit</span>
+                  </div>
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="py-2 text-center text-xs text-neutral-400">
+              Please sign in to access courier booking and tracking features.
             </div>
-          </button>
+          )}
 
           <div className="pt-2 border-t border-neutral-800 flex gap-2 text-center text-xs">
-            <Link
-              href="/signup"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-white font-bold"
-            >
-              Sign Up
-            </Link>
+            {!currentUser ? (
+              <Link
+                href="/signup"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-white font-bold"
+              >
+                Sign Up
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  onOpenAuth();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-white font-bold"
+              >
+                Manage Profile
+              </button>
+            )}
             {currentUser?.email?.toLowerCase() === 'prajapatikaranc@gmail.com' && (
               <Link
                 href="/admin"

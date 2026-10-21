@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-lg font-bold text-white pt-4">4. Storage & Security</h2>
           <p>
-            All address and order records are stored encrypted in transit and at rest using Google Cloud Firebase infrastructure with EU/UK data residency. We retain dispatch records only for the duration required by UK tax, transport, and delivery verification laws.
+            All address and order records are stored encrypted in transit and at rest using modern enterprise cloud infrastructure with EU/UK data residency. We retain dispatch records only for the duration required by UK tax, transport, and delivery verification laws.
           </p>
 
           <h2 className="text-lg font-bold text-white pt-4">5. Your Legal Rights</h2>

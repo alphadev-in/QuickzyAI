@@ -226,10 +226,23 @@ export default function OnboardingPage() {
 
               <button
                 type="button"
-                onClick={handleFinish}
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('quickzy_preferred_stream', stream);
+                    const userRaw = localStorage.getItem('quickzy_user_session');
+                    if (userRaw) {
+                      try {
+                        const parsed = JSON.parse(userRaw);
+                        parsed.preferredStream = stream;
+                        localStorage.setItem('quickzy_user_session', JSON.stringify(parsed));
+                      } catch {}
+                    }
+                  }
+                  handleFinish();
+                }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
               >
-                <span>Launch Quickzy Dashboard</span>
+                <span>Launch Quickzy Dashboard ({stream.toUpperCase()})</span>
                 <Sparkles className="w-4 h-4" />
               </button>
             </div>
