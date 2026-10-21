@@ -8,7 +8,7 @@
     "functions"
   ],
   "scripts": {
-    "build": "npm run build --workspace=web",
+    "build": "npm run build --workspace=web && mkdir -p .next/standalone/.next && cp -r web/.next/standalone/web/.next/* .next/standalone/.next/ 2>/dev/null || true",
     "start": "npm run start --workspace=web",
     "dev": "npm run dev --workspace=web"
   },
