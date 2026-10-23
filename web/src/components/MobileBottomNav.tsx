@@ -96,14 +96,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               onClick={item.action}
               className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer select-none ${
                 isActive
-                  ? 'text-emerald-400 font-bold scale-105'
+                  ? 'text-[#3fc060] font-bold scale-105'
                   : 'text-neutral-400 hover:text-neutral-200 font-medium'
               }`}
             >
               <div className="relative">
                 {item.icon}
                 {isActive && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#3fc060] rounded-full shadow-sm shadow-[#3fc060]" />
                 )}
               </div>
               <span className="text-[10px] mt-1 tracking-tight leading-none">{item.label}</span>

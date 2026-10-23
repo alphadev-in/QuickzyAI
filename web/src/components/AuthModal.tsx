@@ -264,10 +264,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           /* ── Auth Form (not logged in) ── */
           <div>
             <div className="mb-6">
-              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Secure Account Access
-              </span>
-              <h2 className="text-2xl font-black tracking-tight mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-9 h-9 rounded-xl overflow-hidden bg-neutral-900 border border-white/10 flex items-center justify-center p-1 shadow-md shadow-[#3fc060]/20">
+                  <img src="/logo.png" alt="Quickzy" className="w-full h-full object-contain" />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-[#3fc060]/10 text-[#3fc060] border border-[#3fc060]/30">
+                  Secure Account Access
+                </span>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight mt-1">
                 {isSignUp ? 'Create Quickzy Account' : 'Sign in to Quickzy'}
               </h2>
               <p className="text-xs text-neutral-400 mt-1">

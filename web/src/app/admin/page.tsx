@@ -248,7 +248,10 @@ export default function AdminDashboardPage() {
             href="/"
             className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-emerald-400 transition"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-lg overflow-hidden bg-neutral-900 border border-white/10 flex items-center justify-center shrink-0">
+              <img src="/logo.png" alt="Quickzy" className="w-full h-full object-contain p-0.5" />
+            </div>
+            <ArrowLeft className="w-4 h-4 ml-1" />
             <span>Back to Quickzy Main</span>
           </Link>
 

@@ -219,7 +219,7 @@ function MainApplicationContent() {
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight"
                 style={{ color: 'var(--foreground)' }}>
                 Point-to-Point London Courier for{' '}
-                <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#3fc060] via-emerald-400 to-teal-300 bg-clip-text text-transparent">
                   Pharmacy, Food &amp; Parcels
                 </span>
               </h1>

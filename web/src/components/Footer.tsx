@@ -16,11 +16,11 @@ export const Footer: React.FC<FooterProps> = ({ currentUser }) => {
           {/* Column 1: Brand & Identity */}
           <div className="space-y-3 md:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 text-neutral-950 flex items-center justify-center font-black text-sm">
-                Q
+              <div className="w-8 h-8 rounded-xl overflow-hidden bg-neutral-900 border border-white/10 flex items-center justify-center shrink-0 shadow-md shadow-[#3fc060]/20">
+                <img src="/logo.png" alt="Quickzy" className="w-full h-full object-contain p-0.5" />
               </div>
               <span className="font-black text-white text-base tracking-tight">Quickzy</span>
-              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="text-[10px] font-bold bg-[#3fc060]/20 text-[#3fc060] px-2 py-0.5 rounded-full border border-[#3fc060]/30">
                 LONDON
               </span>
             </div>

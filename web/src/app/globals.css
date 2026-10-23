@@ -9,6 +9,9 @@
   --header-border: rgba(255, 255, 255, 0.07);
   --surface: #111113;
   --surface-2: #18181b;
+  --primary: #3fc060;
+  --primary-hover: #37b055;
+  --primary-glow: rgba(63, 192, 96, 0.25);
 }
 
 .light-theme {
@@ -20,6 +23,9 @@
   --header-border: rgba(15, 23, 42, 0.1);
   --surface: #ffffff;
   --surface-2: #eef2f8;
+  --primary: #3fc060;
+  --primary-hover: #32a04e;
+  --primary-glow: rgba(63, 192, 96, 0.25);
 }
 
 @theme inline {
@@ -104,16 +110,30 @@ body {
 .light-theme .text-neutral-100 { color: #0f172a !important; }
 .light-theme .text-white        { color: #0f172a !important; }
 
+/* Brand Theme Accents (#3fc060) */
+.text-emerald-400 { color: #3fc060 !important; }
+.text-emerald-500 { color: #3fc060 !important; }
+.bg-emerald-500   { background-color: #3fc060 !important; }
+.bg-emerald-500\/10 { background-color: rgba(63, 192, 96, 0.10) !important; }
+.bg-emerald-500\/15 { background-color: rgba(63, 192, 96, 0.15) !important; }
+.bg-emerald-500\/20 { background-color: rgba(63, 192, 96, 0.20) !important; }
+.border-emerald-500 { border-color: #3fc060 !important; }
+.border-emerald-500\/20 { border-color: rgba(63, 192, 96, 0.20) !important; }
+.border-emerald-500\/30 { border-color: rgba(63, 192, 96, 0.30) !important; }
+.border-emerald-500\/40 { border-color: rgba(63, 192, 96, 0.40) !important; }
+
 /* Accents — keep them vivid in light mode */
-.light-theme .text-emerald-400 { color: #059669 !important; }
+.light-theme .text-emerald-400 { color: #2e9b4a !important; }
+.light-theme .text-emerald-500 { color: #2e9b4a !important; }
+.light-theme .bg-emerald-500   { background-color: #3fc060 !important; color: #0a0a0a !important; }
 .light-theme .text-cyan-400     { color: #0891b2 !important; }
 .light-theme .text-amber-400    { color: #d97706 !important; }
 .light-theme .text-red-400      { color: #dc2626 !important; }
 
-/* Accent tinted backgrounds */
-.light-theme .bg-emerald-500\/10 { background-color: rgba(16,185,129,0.12) !important; }
-.light-theme .bg-emerald-500\/15 { background-color: rgba(16,185,129,0.15) !important; }
-.light-theme .bg-emerald-500\/20 { background-color: rgba(16,185,129,0.2) !important; }
+/* Accent tinted backgrounds in light mode */
+.light-theme .bg-emerald-500\/10 { background-color: rgba(63, 192, 96, 0.12) !important; }
+.light-theme .bg-emerald-500\/15 { background-color: rgba(63, 192, 96, 0.16) !important; }
+.light-theme .bg-emerald-500\/20 { background-color: rgba(63, 192, 96, 0.22) !important; }
 .light-theme .bg-cyan-500\/10    { background-color: rgba(6,182,212,0.12) !important; }
 .light-theme .bg-amber-500\/10   { background-color: rgba(245,158,11,0.12) !important; }
 .light-theme .bg-red-500\/10     { background-color: rgba(239,68,68,0.1) !important; }

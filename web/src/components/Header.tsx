@@ -114,13 +114,20 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => !currentUser ? undefined : handleTabClick('booking')}
             className={`flex items-center space-x-3 ${currentUser ? 'cursor-pointer' : 'cursor-default'} select-none`}
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 font-black text-xl text-neutral-950 animate-float">
-              Q
+            <div className="relative w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#3fc060]/25 border border-white/10 flex items-center justify-center bg-neutral-900 animate-float shrink-0">
+              <img
+                src="/logo.png"
+                alt="Quickzy Logo"
+                className="w-full h-full object-contain p-1"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-xl font-black tracking-tight text-white">Quickzy</span>
-                <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full tracking-wide">
+                <span className="text-[10px] font-extrabold bg-[#3fc060]/20 text-[#3fc060] border border-[#3fc060]/30 px-2 py-0.5 rounded-full tracking-wide">
                   LONDON 🇬🇧
                 </span>
               </div>
