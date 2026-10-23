@@ -34,6 +34,8 @@ interface SingleBookingFormProps {
   onOrderCreated: (order: QuickzyOrder) => void;
   selectedPickupAddress?: AddressItem | null;
   selectedDropoffAddress?: AddressItem | null;
+  /** Delivery stream locked to this user's profile (business clients). Admin can override. */
+  profileDeliveryStream?: string | null;
 }
 
 export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
@@ -45,22 +47,26 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   onOrderCreated,
   selectedPickupAddress,
   selectedDropoffAddress,
+  profileDeliveryStream,
 }) => {
   // Booking Type: pharmacy | food | parcel
-  const [bookingType, setBookingType] = useState<BookingType>('parcel');
-  const [lockedStream, setLockedStream] = useState<BookingType | null>(null);
+  // Business clients are locked to their profile stream (set at signup).
+  // Only admins can freely switch. Customers can also freely switch.
+  const isBusinessClient = role === 'client';
 
+  const lockedStream: BookingType | null =
+    isBusinessClient && profileDeliveryStream
+      ? (profileDeliveryStream as BookingType)
+      : null;
+
+  const [bookingType, setBookingType] = useState<BookingType>(
+    lockedStream || (profileDeliveryStream as BookingType) || 'parcel'
+  );
+
+  // Sync if profileDeliveryStream changes after mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const pref = localStorage.getItem('quickzy_preferred_stream') as BookingType | null;
-      if (pref && (pref === 'pharmacy' || pref === 'food' || pref === 'parcel')) {
-        setBookingType(pref);
-        if (role === 'client') {
-          setLockedStream(pref);
-        }
-      }
-    }
-  }, [role]);
+    if (lockedStream) setBookingType(lockedStream);
+  }, [lockedStream]);
 
   // Addresses
   const [pickupLine1, setPickupLine1] = useState(
@@ -273,7 +279,12 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
       {/* 1. Category Switcher */}
       <div className="mt-6">
         <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider mb-2 block">
-          1. Select Delivery Stream {lockedStream && <span className="text-emerald-400 font-mono">(Locked to Your Business Profile: {lockedStream.toUpperCase()})</span>}
+          1. Select Delivery Stream
+          {lockedStream && (
+            <span className="ml-2 text-amber-400 font-normal text-[11px] normal-case tracking-normal">
+              Locked to your business profile ({lockedStream}) — contact admin to change
+            </span>
+          )}
         </label>
         <div className={`grid ${lockedStream ? 'grid-cols-1 max-w-sm' : 'grid-cols-3'} gap-3`}>
           {(!lockedStream || lockedStream === 'pharmacy') && (
