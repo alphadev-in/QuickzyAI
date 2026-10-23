@@ -3,10 +3,13 @@ import Link from 'next/link';
 import { ArrowLeft, MapPin, CheckCircle, Navigation, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 
-export const metadata = {
-  title: 'London Delivery Coverage & Boroughs | Quickzy Same-Day Courier',
+import { pageMetadata } from '@/lib/seo';
+
+export const metadata = pageMetadata({
+  title: 'London Delivery Coverage & Boroughs',
   description: 'Explore Quickzy rapid same-day delivery coverage across all 32 London boroughs and the City of London for Pharmacy, Food, and Parcel freight.',
-};
+  path: '/locations',
+});
 
 const BOROUGHS = [
   { name: 'City of London', codes: 'EC1, EC2, EC3, EC4', zone: 'Central' },

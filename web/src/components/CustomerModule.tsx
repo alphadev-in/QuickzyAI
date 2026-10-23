@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AddressItem, CustomerRecord, isValidLondonPostcode } from '@/types/delivery';
 import { saveCustomer, deleteCustomer } from '@/lib/customerService';
+import { CustomerCsvImport } from '@/components/CustomerCsvImport';
 import { Users, Plus, Pencil, Trash2, MapPin, ShieldAlert, CheckCircle2, X } from 'lucide-react';
 
 interface CustomerModuleProps {
@@ -164,6 +165,8 @@ export const CustomerModule: React.FC<CustomerModuleProps> = ({ ownerEmail, cust
           <span>{success}</span>
         </div>
       )}
+
+      {!draft && <CustomerCsvImport ownerEmail={ownerEmail} customers={customers} onImported={onChanged} />}
 
       {draft && (
         <form onSubmit={handleSave} className="bg-neutral-950/80 border border-neutral-800 rounded-xl p-5 space-y-4">

@@ -13,6 +13,7 @@ import {
   calculateDeliveryPrice,
   evaluateSameDayCutoff,
   isValidLondonPostcode,
+  SAME_DAY_MAX_MILES,
 } from '@/types/delivery';
 import { createOrder, fetchPricingConfig } from '@/lib/orderService';
 import { fetchRouteMiles } from '@/lib/routeMiles';
@@ -194,6 +195,13 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
       ]);
       if (route?.miles == null) {
         setErrorMessage(route?.error || 'Could not calculate the route distance.');
+        return;
+      }
+
+      if (timeSlot === 'same_day_asap' && route.miles > SAME_DAY_MAX_MILES) {
+        setErrorMessage(
+          `Instant same-day is only available within ${SAME_DAY_MAX_MILES} miles (this route is ${route.miles.toFixed(1)} mi). Choose the scheduled evening slot instead.`
+        );
         return;
       }
 
@@ -495,7 +503,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-xs text-neutral-400">Dispatch Speed:</span>
             <select value={timeSlot} onChange={(e) => setTimeSlot(e.target.value as TimeSlotType)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
-              <option value="same_day_asap">Instant Same-Day ASAP (Within 90 mins)</option>
+              <option value="same_day_asap">Instant Same-Day ASAP (Within 15 miles)</option>
               <option value="scheduled">Scheduled Evening Slot (18:00 - 21:00)</option>
             </select>
           </div>

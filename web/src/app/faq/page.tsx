@@ -3,10 +3,13 @@ import Link from 'next/link';
 import { ArrowLeft, HelpCircle, Clock, ShieldCheck, MapPin, Truck, ChevronDown, ArrowRight } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 
-export const metadata = {
-  title: 'Frequently Asked Questions (FAQ) | Quickzy Same-Day London Delivery',
+import { pageMetadata } from '@/lib/seo';
+
+export const metadata = pageMetadata({
+  title: 'Frequently Asked Questions',
   description: 'Find answers about Quickzy London same-day courier service, 14:00 GMT cutoff, parcel dimensions, restricted items, and business bulk manifests.',
-};
+  path: '/faq',
+});
 
 const FAQS = [
   {

@@ -117,6 +117,9 @@ export interface PriceQuote {
 // Same-Day Cutoff Logic: Daily 14:00 (2:00 PM London time)
 export const SAME_DAY_CUTOFF_HOUR = 14;
 
+// Instant same-day (ASAP) dispatch only covers routes up to this many road miles
+export const SAME_DAY_MAX_MILES = 15;
+
 export function evaluateSameDayCutoff(requestedDate?: Date): {
   isCutoffExceeded: boolean;
   effectiveDeliveryDate: string;

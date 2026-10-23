@@ -11,6 +11,7 @@ import {
   DEFAULT_PRICING_CONFIG,
   PaymentMethod,
   calculateDeliveryPrice,
+  SAME_DAY_MAX_MILES,
 } from '@/types/delivery';
 import {
   UploadCloud,
@@ -92,6 +93,14 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
         const route = routes[i];
         if (route?.miles == null) {
           failed.push({ row: i + 2, data: row, errors: [route?.error || 'Route could not be measured'] });
+          return;
+        }
+        if (route.miles > SAME_DAY_MAX_MILES) {
+          failed.push({
+            row: i + 2,
+            data: row,
+            errors: [`Route is ${route.miles.toFixed(1)} mi. Same-day dispatch is limited to ${SAME_DAY_MAX_MILES} miles`],
+          });
           return;
         }
         const quote = calculateDeliveryPrice({ type: row.type, estimatedMiles: route.miles }, pricingConfig);
