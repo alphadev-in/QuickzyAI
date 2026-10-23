@@ -15,6 +15,9 @@ import {
   Sparkles,
   AlertTriangle,
   Package,
+  Camera,
+  UploadCloud,
+  FileCheck,
 } from 'lucide-react';
 import { QuickzyOrder, OrderStatus } from '@/types/delivery';
 import { updateOrderStatus } from '@/lib/orderService';
@@ -33,6 +36,10 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   const { activeTrip, verifyWaypointHandshake, setActiveRole, setSelectedMerchantId } = useApp();
 
   const [activeModalWaypointId, setActiveModalWaypointId] = useState<string | null>(null);
+  const [deliveryProofModalOrder, setDeliveryProofModalOrder] = useState<QuickzyOrder | null>(null);
+  const [proofPhotoData, setProofPhotoData] = useState<string>('');
+  const [handoverNotes, setHandoverNotes] = useState<string>('Left with recipient at doorstep.');
+  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
   const [coldChecklist, setColdChecklist] = useState({
     thermalBagReady: false,
     icePackActive: false,
@@ -49,7 +56,29 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   );
 
   const handleDriverStatusUpdate = async (orderId: string, nextStatus: OrderStatus) => {
-    await updateOrderStatus(orderId, nextStatus, currentUserEmail || 'Assigned Courier');
+    await updateOrderStatus(orderId, nextStatus, {
+      driverName: currentUserEmail ? currentUserEmail.split('@')[0] : 'Quickzy Courier',
+      driverEmail: currentUserEmail,
+    });
+    if (onRefreshOrders) onRefreshOrders();
+  };
+
+  const handleCompleteDeliveryWithProof = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deliveryProofModalOrder) return;
+    setIsSubmittingProof(true);
+
+    await updateOrderStatus(deliveryProofModalOrder.id, 'delivered', {
+      driverName: currentUserEmail ? currentUserEmail.split('@')[0] : 'Quickzy Courier',
+      driverEmail: currentUserEmail,
+      proofOfDeliveryPhoto: proofPhotoData || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60',
+      handoverNotes: handoverNotes.trim() || 'Package handed over and verified.',
+      location: `${deliveryProofModalOrder.dropoffAddress?.line1 || 'Destination'}, ${deliveryProofModalOrder.dropoffAddress?.postcode || ''}`,
+    });
+
+    setIsSubmittingProof(false);
+    setDeliveryProofModalOrder(null);
+    setProofPhotoData('');
     if (onRefreshOrders) onRefreshOrders();
   };
 
@@ -139,16 +168,22 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                   )}
                   {parcel.status === 'out_for_delivery' && (
                     <button
-                      onClick={() => handleDriverStatusUpdate(parcel.id, 'delivered')}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                      onClick={() => setDeliveryProofModalOrder(parcel)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/20"
                     >
-                      Mark Delivered
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Complete with Photo Proof</span>
                     </button>
                   )}
                   {parcel.status === 'delivered' && (
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                      </span>
+                      {parcel.proofOfDeliveryPhoto && (
+                        <span className="text-[10px] text-cyan-400 font-mono">Photo Proof Saved</span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -368,6 +403,140 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                 </p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proof of Delivery Photo & Handover Modal */}
+      {deliveryProofModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div
+            className="border rounded-3xl w-full max-w-lg p-6 shadow-2xl relative space-y-5"
+            style={{
+              background: 'var(--surface, #18181b)',
+              borderColor: 'var(--card-border)',
+              color: 'var(--foreground)',
+            }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--card-border)' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Proof of Handover & Delivery</h3>
+                  <p className="text-xs text-neutral-400 font-mono">Order #{deliveryProofModalOrder.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeliveryProofModalOrder(null)}
+                className="text-neutral-400 hover:text-white font-mono text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCompleteDeliveryWithProof} className="space-y-4 text-xs">
+              <div className="p-3.5 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-1">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Destination</span>
+                <p className="font-bold text-neutral-200">
+                  {deliveryProofModalOrder.dropoffAddress.line1}, {deliveryProofModalOrder.dropoffAddress.postcode}
+                </p>
+                <p className="text-[11px] text-neutral-400">
+                  Stream: <span className="uppercase text-emerald-400 font-bold">{deliveryProofModalOrder.type}</span>
+                </p>
+              </div>
+
+              {/* Photo Upload / Camera Capture Simulator */}
+              <div>
+                <label className="text-xs font-bold text-neutral-300 block mb-1.5 flex items-center justify-between">
+                  <span>Photo of Doorstep / Handover</span>
+                  <span className="text-emerald-400 font-normal text-[11px] flex items-center gap-1">
+                    <FileCheck className="w-3.5 h-3.5" /> Required for Compliance
+                  </span>
+                </label>
+
+                {proofPhotoData ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-emerald-500/40 max-h-48">
+                    <img src={proofPhotoData} alt="Proof" className="w-full object-cover max-h-48" />
+                    <button
+                      type="button"
+                      onClick={() => setProofPhotoData('')}
+                      className="absolute top-2 right-2 bg-neutral-900/90 text-red-400 px-2 py-1 rounded-lg text-[10px] font-bold border border-red-500/30"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-neutral-700 hover:border-emerald-500/50 rounded-2xl p-4 text-center space-y-2 transition bg-neutral-950/40">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
+                      <UploadCloud className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs text-neutral-300 font-medium">Capture or upload photo of delivery location</p>
+                    <div className="flex justify-center gap-2 pt-1">
+                      <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-[11px]">
+                        Choose File
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => setProofPhotoData(ev.target?.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setProofPhotoData(
+                            'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60'
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 font-bold text-[11px] border border-emerald-500/30"
+                      >
+                        Use Sample Photo
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Handover notes */}
+              <div>
+                <label className="text-xs font-bold text-neutral-300 block mb-1">Handover Notes / Recipient Identity</label>
+                <input
+                  type="text"
+                  value={handoverNotes}
+                  onChange={(e) => setHandoverNotes(e.target.value)}
+                  placeholder="e.g. Handed directly to pharmacist / Reception desk signed"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryProofModalOrder(null)}
+                  className="flex-1 py-3 rounded-xl bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingProof}
+                  className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/25"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSubmittingProof ? 'Saving...' : 'Confirm Delivery'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

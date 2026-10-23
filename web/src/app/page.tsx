@@ -12,6 +12,7 @@ import { AddressBookModal } from '@/components/AddressBookModal';
 import { AuthModal } from '@/components/AuthModal';
 import { DriverCockpit } from '@/components/DriverCockpit';
 import { RouteBatcherCockpit } from '@/components/RouteBatcherCockpit';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { AddressItem, QuickzyOrder, UserRole } from '@/types/delivery';
 import { fetchUserAddresses, fetchAllOrders } from '@/lib/orderService';
 import { auth, db } from '@/lib/firebase';
@@ -178,7 +179,7 @@ function MainApplicationContent() {
   const canUseBulk = isClient || isAdmin;
 
   // The main page wrapper gets light/dark bg
-  const pageBg = 'min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950';
+  const pageBg = 'min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950 pb-20 lg:pb-0';
 
   return (
     <div className={pageBg} style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
@@ -511,6 +512,22 @@ function MainApplicationContent() {
       )}
 
       <Footer currentUser={currentUser} />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAddressBook={() => {
+          if (!currentUser) {
+            setIsAuthOpen(true);
+          } else {
+            setAddressSelectionMode(null);
+            setIsAddressBookOpen(true);
+          }
+        }}
+      />
     </div>
   );
 }

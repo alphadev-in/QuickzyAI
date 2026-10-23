@@ -9,8 +9,10 @@ import {
   evaluateSameDayCutoff,
   isValidLondonPostcode,
   QuickzyOrder,
+  ParcelPricingConfig,
+  DEFAULT_PRICING_CONFIG,
 } from '@/types/delivery';
-import { createOrder } from '@/lib/orderService';
+import { createOrder, fetchPricingConfig } from '@/lib/orderService';
 import {
   Pill,
   Utensils,
@@ -116,23 +118,30 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   });
 
   // Pricing & State
+  const [pricingConfig, setPricingConfig] = useState<ParcelPricingConfig>(DEFAULT_PRICING_CONFIG);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successOrder, setSuccessOrder] = useState<QuickzyOrder | null>(null);
 
   useEffect(() => {
     setCutoffInfo(evaluateSameDayCutoff());
+    fetchPricingConfig().then((cfg) => {
+      if (cfg) setPricingConfig(cfg);
+    });
   }, []);
 
-  const priceQuote = calculateDeliveryPrice({
-    type: bookingType,
-    weightKg,
-    lengthCm,
-    widthCm,
-    heightCm,
-    isRestricted,
-    estimatedMiles: 4.5,
-  });
+  const priceQuote = calculateDeliveryPrice(
+    {
+      type: bookingType,
+      weightKg,
+      lengthCm,
+      widthCm,
+      heightCm,
+      isRestricted,
+      estimatedMiles: 4.5,
+    },
+    pricingConfig
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,7 +183,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           isRestricted,
           restrictedCategory: isRestricted ? restrictedCategory : undefined,
         },
-      });
+      }, pricingConfig);
 
       setSuccessOrder(order);
       onOrderCreated(order);

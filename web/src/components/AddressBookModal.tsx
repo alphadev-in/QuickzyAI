@@ -66,7 +66,14 @@ export const AddressBookModal: React.FC<AddressBookModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+      <div
+        className="border rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] flex flex-col"
+        style={{
+          background: 'var(--surface, #18181b)',
+          borderColor: 'var(--card-border)',
+          color: 'var(--foreground)',
+        }}
+      >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-neutral-400 hover:text-white font-mono"

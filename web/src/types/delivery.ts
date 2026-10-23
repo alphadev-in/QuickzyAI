@@ -63,6 +63,17 @@ export interface QuickzyOrder {
   assignedDriverEmail?: string;
   invoiceId?: string;
   bulkImportId?: string;
+  proofOfDeliveryPhoto?: string;
+  handoverNotes?: string;
+  deliveredAt?: string;
+  activities?: {
+    timestamp: string;
+    action: string;
+    actor: string;
+    details?: string;
+    location?: string;
+  }[];
+  notificationAlert?: string;
 }
 
 // Bulk Import Record

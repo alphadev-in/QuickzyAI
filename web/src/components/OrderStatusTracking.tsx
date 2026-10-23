@@ -12,10 +12,12 @@ import {
   Truck,
   Clock,
   ArrowRight,
-  ShieldCheck,
-  UserCheck,
   FileText,
   MapPin,
+  Bell,
+  Camera,
+  CheckCircle2,
+  Activity,
 } from 'lucide-react';
 import { OpenStreetMapViewer } from './OpenStreetMapViewer';
 
@@ -155,9 +157,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                 </div>
 
                 <div className="mt-2 text-[11px] text-neutral-400 font-mono flex items-center justify-between">
-                  <span>{order.pickupAddress.postcode}</span>
+                  <span>{order.pickupAddress?.postcode || 'N/A'}</span>
                   <span>➔</span>
-                  <span>{order.dropoffAddress.postcode}</span>
+                  <span>{order.dropoffAddress?.postcode || 'N/A'}</span>
                 </div>
               </div>
             );
@@ -195,6 +197,96 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                     <FileText className="w-3.5 h-3.5" />
                     <span>{selectedOrder.invoiceId || `INV-${selectedOrder.id}`}</span>
                   </p>
+                </div>
+              </div>
+
+              {/* Notification Banner */}
+              {selectedOrder.notificationAlert && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2.5 animate-pulse-glow">
+                  <Bell className="w-4 h-4 shrink-0" />
+                  <div className="flex-1">
+                    <span className="font-bold">Live Notification: </span>
+                    <span>{selectedOrder.notificationAlert}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Handover & Proof of Delivery Card (If Delivered) */}
+              {selectedOrder.status === 'delivered' && (
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Delivery Handover Confirmed & Signed
+                    </span>
+                    {selectedOrder.deliveredAt && (
+                      <span className="text-[10px] text-neutral-400 font-mono">
+                        {new Date(selectedOrder.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  {selectedOrder.handoverNotes && (
+                    <p className="text-neutral-300">
+                      <strong className="text-neutral-200">Handover Notes:</strong> {selectedOrder.handoverNotes}
+                    </p>
+                  )}
+                  {selectedOrder.proofOfDeliveryPhoto && (
+                    <div>
+                      <p className="text-[11px] font-bold text-neutral-300 mb-1.5 flex items-center gap-1">
+                        <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Proof of Delivery Photo</span>
+                      </p>
+                      <div className="relative rounded-xl overflow-hidden border border-emerald-500/30 max-w-sm">
+                        <img
+                          src={selectedOrder.proofOfDeliveryPhoto}
+                          alt="Proof of Handover"
+                          className="w-full h-40 object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Activity Trail / Order Timeline */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Order Activity & Handover History</span>
+                </p>
+                <div className="space-y-2">
+                  {(selectedOrder.activities && selectedOrder.activities.length > 0
+                    ? selectedOrder.activities
+                    : [
+                        {
+                          timestamp: selectedOrder.createdAt,
+                          action: 'Order Booked & Confirmed',
+                          actor: selectedOrder.userEmail || 'Client',
+                          details: 'Placed order with rapid London same-day delivery service.',
+                          location: `${selectedOrder.pickupAddress.line1} (${selectedOrder.pickupAddress.postcode})`,
+                        },
+                      ]
+                  ).map((act, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-neutral-900/60 border border-neutral-800/80 flex items-start gap-3 text-xs"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                      <div className="flex-1 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-neutral-200">{act.action}</span>
+                          <span className="text-[10px] text-neutral-500 font-mono">
+                            {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400">
+                          By <strong className="text-neutral-300">{act.actor}</strong>
+                          {act.location ? ` • At ${act.location}` : ''}
+                        </p>
+                        {act.details && <p className="text-[11px] text-neutral-300">{act.details}</p>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -239,9 +331,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                   <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
                     Pickup Location
                   </span>
-                  <p className="text-neutral-200 font-medium">{selectedOrder.pickupAddress.line1}</p>
+                  <p className="text-neutral-200 font-medium">{selectedOrder.pickupAddress?.line1 || 'Quickzy London Hub'}</p>
                   <p className="text-neutral-400 font-mono text-[11px]">
-                    {selectedOrder.pickupAddress.city}, {selectedOrder.pickupAddress.postcode}
+                    {selectedOrder.pickupAddress?.city || 'London'}, {selectedOrder.pickupAddress?.postcode || 'N/A'}
                   </p>
                 </div>
 
@@ -249,9 +341,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                   <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
                     Drop-off Location
                   </span>
-                  <p className="text-neutral-200 font-medium">{selectedOrder.dropoffAddress.line1}</p>
+                  <p className="text-neutral-200 font-medium">{selectedOrder.dropoffAddress?.line1 || 'Destination'}</p>
                   <p className="text-neutral-400 font-mono text-[11px]">
-                    {selectedOrder.dropoffAddress.city}, {selectedOrder.dropoffAddress.postcode}
+                    {selectedOrder.dropoffAddress?.city || 'London'}, {selectedOrder.dropoffAddress?.postcode || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -264,16 +356,16 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                     <span>Live London Dispatch Route (OpenStreetMap)</span>
                   </span>
                   <span className="text-[10px] text-emerald-400 font-mono">
-                    {selectedOrder.pickupAddress.postcode} ➔ {selectedOrder.dropoffAddress.postcode}
+                    {selectedOrder.pickupAddress?.postcode || 'N/A'} ➔ {selectedOrder.dropoffAddress?.postcode || 'N/A'}
                   </span>
                 </div>
                 <OpenStreetMapViewer
-                  pickupLat={selectedOrder.pickupAddress.lat || 51.5074}
-                  pickupLng={selectedOrder.pickupAddress.lng || -0.1278}
-                  pickupLabel={`${selectedOrder.pickupAddress.line1} (${selectedOrder.pickupAddress.postcode})`}
-                  dropoffLat={selectedOrder.dropoffAddress.lat || 51.5155}
-                  dropoffLng={selectedOrder.dropoffAddress.lng || -0.1419}
-                  dropoffLabel={`${selectedOrder.dropoffAddress.line1} (${selectedOrder.dropoffAddress.postcode})`}
+                  pickupLat={selectedOrder.pickupAddress?.lat || 51.5074}
+                  pickupLng={selectedOrder.pickupAddress?.lng || -0.1278}
+                  pickupLabel={`${selectedOrder.pickupAddress?.line1 || 'Pickup'} (${selectedOrder.pickupAddress?.postcode || ''})`}
+                  dropoffLat={selectedOrder.dropoffAddress?.lat || 51.5155}
+                  dropoffLng={selectedOrder.dropoffAddress?.lng || -0.1419}
+                  dropoffLabel={`${selectedOrder.dropoffAddress?.line1 || 'Dropoff'} (${selectedOrder.dropoffAddress?.postcode || ''})`}
                   className="h-56"
                 />
               </div>

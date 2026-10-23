@@ -167,6 +167,15 @@ export async function createOrder(
     createdAt: now,
     updatedAt: now,
     invoiceId: `INV-${orderId}`,
+    activities: [
+      {
+        timestamp: now,
+        action: 'Order Placed',
+        actor: userEmail || userId,
+        details: `Initial ${validated.type.toUpperCase()} consignment booked for £${quote.totalGbp.toFixed(2)}`,
+        location: `${validated.pickupAddress.line1} (${validated.pickupAddress.postcode})`,
+      },
+    ],
   };
 
   try {
@@ -235,14 +244,15 @@ export async function getOrderById(orderId: string): Promise<QuickzyOrder | null
 }
 
 export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promise<QuickzyOrder[]> {
+  const safeUserEmail = userEmail?.toLowerCase() || '';
   try {
     let q;
-    if (role === 'admin' || userEmail === 'prajapatikaranc@gmail.com') {
+    if (role === 'admin' || safeUserEmail === 'prajapatikaranc@gmail.com') {
       // Admin sees all real user orders from Firestore
       q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    } else if (userEmail) {
+    } else if (safeUserEmail) {
       // Regular user sees only their own orders
-      q = query(collection(db, 'orders'), where('userEmail', '==', userEmail));
+      q = query(collection(db, 'orders'), where('userEmail', '==', safeUserEmail));
     } else {
       return [];
     }
@@ -260,24 +270,75 @@ export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promi
   }
 
   const local = getLocalOrders();
-  if (role !== 'admin' && userEmail) {
-    return local.filter((o) => o.userEmail === userEmail || o.userId === userEmail);
+  if (role !== 'admin' && safeUserEmail) {
+    return local.filter((o) => (o.userEmail && o.userEmail.toLowerCase() === safeUserEmail) || o.userId === safeUserEmail);
   }
   return local;
+}
+
+export interface UpdateOrderMeta {
+  driverName?: string;
+  driverEmail?: string;
+  proofOfDeliveryPhoto?: string;
+  handoverNotes?: string;
+  location?: string;
+  details?: string;
 }
 
 export async function updateOrderStatus(
   orderId: string,
   newStatus: QuickzyOrder['status'],
-  driverName?: string
+  metaOrDriverName?: string | UpdateOrderMeta
 ): Promise<boolean> {
   const now = new Date().toISOString();
+  const meta: UpdateOrderMeta =
+    typeof metaOrDriverName === 'string'
+      ? { driverName: metaOrDriverName }
+      : metaOrDriverName || {};
+
+  const actionMap: Record<QuickzyOrder['status'], string> = {
+    booked: 'Order Booked',
+    collected: 'Consignment Collected',
+    out_for_delivery: 'Dispatched & Out for Delivery',
+    delivered: 'Delivery Completed & Handed Over',
+    cancelled: 'Order Cancelled',
+  };
+
+  const newActivity = {
+    timestamp: now,
+    action: actionMap[newStatus] || newStatus,
+    actor: meta.driverName || meta.driverEmail || 'Quickzy Dispatch Fleet',
+    details: meta.details || (newStatus === 'delivered' ? `Proof captured. Notes: ${meta.handoverNotes || 'Signed and handed over securely.'}` : undefined),
+    location: meta.location,
+  };
+
+  const notification =
+    newStatus === 'delivered'
+      ? `Delivery Complete! Your package was delivered and handed over.`
+      : newStatus === 'out_for_delivery'
+      ? `Driver ${meta.driverName || 'assigned'} is on the way for rapid London delivery.`
+      : newStatus === 'collected'
+      ? `Package collected by ${meta.driverName || 'driver'}.`
+      : undefined;
+
+  const patchData: Record<string, any> = {
+    status: newStatus,
+    updatedAt: now,
+  };
+
+  if (meta.driverName) patchData.assignedDriverName = meta.driverName;
+  if (meta.driverEmail) patchData.assignedDriverEmail = meta.driverEmail;
+  if (meta.proofOfDeliveryPhoto) patchData.proofOfDeliveryPhoto = meta.proofOfDeliveryPhoto;
+  if (meta.handoverNotes) patchData.handoverNotes = meta.handoverNotes;
+  if (newStatus === 'delivered') patchData.deliveredAt = now;
+  if (notification) patchData.notificationAlert = notification;
+
   try {
-    await updateDoc(doc(db, 'orders', orderId), {
-      status: newStatus,
-      updatedAt: now,
-      ...(driverName ? { assignedDriverName: driverName } : {}),
-    });
+    const orderRef = doc(db, 'orders', orderId);
+    const existingSnap = await getDoc(orderRef);
+    const existingActivities = existingSnap.exists() ? (existingSnap.data().activities || []) : [];
+    patchData.activities = [...existingActivities, newActivity];
+    await updateDoc(orderRef, patchData);
   } catch (err) {
     console.warn('Firestore updateDoc failed:', err);
   }
@@ -285,9 +346,19 @@ export async function updateOrderStatus(
   const orders = getLocalOrders();
   const idx = orders.findIndex((o) => o.id === orderId);
   if (idx !== -1) {
-    orders[idx].status = newStatus;
-    orders[idx].updatedAt = now;
-    if (driverName) orders[idx].assignedDriverName = driverName;
+    const existingActivities = orders[idx].activities || [];
+    orders[idx] = {
+      ...orders[idx],
+      status: newStatus,
+      updatedAt: now,
+      ...(meta.driverName ? { assignedDriverName: meta.driverName } : {}),
+      ...(meta.driverEmail ? { assignedDriverEmail: meta.driverEmail } : {}),
+      ...(meta.proofOfDeliveryPhoto ? { proofOfDeliveryPhoto: meta.proofOfDeliveryPhoto } : {}),
+      ...(meta.handoverNotes ? { handoverNotes: meta.handoverNotes } : {}),
+      ...(newStatus === 'delivered' ? { deliveredAt: now } : {}),
+      ...(notification ? { notificationAlert: notification } : {}),
+      activities: [...existingActivities, newActivity],
+    };
     if (typeof window !== 'undefined') {
       localStorage.setItem('quickzy_orders', JSON.stringify(orders));
     }

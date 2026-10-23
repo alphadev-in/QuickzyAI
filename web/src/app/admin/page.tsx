@@ -110,7 +110,11 @@ export default function AdminDashboardPage() {
 
   const handleAssignDriver = async (orderId: string) => {
     if (!driverNameInput.trim()) return;
-    await updateOrderStatus(orderId, 'out_for_delivery', driverNameInput.trim());
+    await updateOrderStatus(orderId, 'out_for_delivery', {
+      driverName: driverNameInput.trim(),
+      driverEmail: driverEmailInput.trim() || undefined,
+      details: `Admin assigned courier ${driverNameInput.trim()}${driverEmailInput.trim() ? ` (${driverEmailInput.trim()})` : ''} for rapid London dispatch.`,
+    });
     setAssigningOrderId(null);
     setDriverNameInput('');
     setDriverEmailInput('');
@@ -204,12 +208,21 @@ export default function AdminDashboardPage() {
   const isAuthorized = currentUserEmail === ADMIN_AUTHORIZED_EMAIL;
 
   const filteredOrders = orders.filter((o) => {
-    const q = search.toLowerCase();
+    if (!o) return false;
+    const q = (search || '').toLowerCase();
+    const orderId = (o.id || '').toLowerCase();
+    const pk = (o.pickupAddress?.postcode || '').toLowerCase();
+    const dp = (o.dropoffAddress?.postcode || '').toLowerCase();
+    const uEmail = (o.userEmail || o.userId || '').toLowerCase();
+    const dName = (o.assignedDriverName || '').toLowerCase();
+
     const matchesSearch =
-      o.id.toLowerCase().includes(q) ||
-      o.pickupAddress.postcode.toLowerCase().includes(q) ||
-      o.dropoffAddress.postcode.toLowerCase().includes(q) ||
-      (o.userEmail && o.userEmail.toLowerCase().includes(q));
+      !q ||
+      orderId.includes(q) ||
+      pk.includes(q) ||
+      dp.includes(q) ||
+      uEmail.includes(q) ||
+      dName.includes(q);
 
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -624,9 +637,9 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className="p-3.5 text-neutral-400 font-mono text-[11px]">{order.userEmail || order.userId}</td>
                       <td className="p-3.5 font-mono text-[11px]">
-                        <span className="text-emerald-400">{order.pickupAddress.postcode}</span>
+                        <span className="text-emerald-400">{order.pickupAddress?.postcode || 'N/A'}</span>
                         <span className="text-neutral-500 mx-1.5">➔</span>
-                        <span className="text-cyan-400">{order.dropoffAddress.postcode}</span>
+                        <span className="text-cyan-400">{order.dropoffAddress?.postcode || 'N/A'}</span>
                       </td>
                       <td className="p-3.5 font-bold text-emerald-400">£{order.priceGbp?.toFixed(2) || '0.00'}</td>
                       <td className="p-3.5">
@@ -708,12 +721,19 @@ export default function AdminDashboardPage() {
                     <span className="font-bold text-white">Assign Driver to Order #{assigningOrderId}:</span>
                     <p className="text-[11px] text-neutral-400">Select or type driver name & area dispatch unit.</p>
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     <input
                       type="text"
-                      placeholder="e.g. Liam (Central London Bike #3)"
+                      placeholder="Driver Name (e.g. Liam Bike #3)"
                       value={driverNameInput}
                       onChange={(e) => setDriverNameInput(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Driver Email (e.g. driver@quickzy.co.uk)"
+                      value={driverEmailInput}
+                      onChange={(e) => setDriverEmailInput(e.target.value)}
                       className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
                     />
                     <button

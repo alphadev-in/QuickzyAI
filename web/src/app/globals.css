@@ -141,6 +141,38 @@ body {
   color: #0f172a !important;
 }
 
+/* Footer in light mode */
+.light-theme footer {
+  background-color: #ffffff !important;
+  border-color: #dde5ee !important;
+  color: #64748b !important;
+}
+.light-theme footer h4 {
+  color: #0f172a !important;
+}
+.light-theme footer p,
+.light-theme footer li {
+  color: #475569 !important;
+}
+.light-theme footer a:not(.text-red-400):not(.text-emerald-400) {
+  color: #475569 !important;
+}
+.light-theme footer a:hover {
+  color: #059669 !important;
+}
+
+/* Modals & Dialogs in light mode */
+.light-theme .fixed.inset-0 {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+}
+.light-theme [role="dialog"],
+.light-theme .fixed.inset-0 > div,
+.light-theme .modal-content {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #dde5ee !important;
+}
+
 /* Glass panels */
 .light-theme .glass-panel {
   background: rgba(255, 255, 255, 0.97) !important;
@@ -148,9 +180,25 @@ body {
   box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.07) !important;
 }
 
-/* Modal overlay */
-.light-theme .fixed.inset-0 > div {
-  background-color: rgba(15, 23, 42, 0.65) !important;
+/* Tables in light mode */
+.light-theme table {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+.light-theme thead,
+.light-theme th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+.light-theme tbody tr {
+  border-color: #e2e8f0 !important;
+}
+.light-theme tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+.light-theme td {
+  color: #1e293b !important;
 }
 
 /* Scrollbar in light mode */
