@@ -1,38 +1,111 @@
 'use client';
 
-import React, { useState } from 'react';
-import { parseAndValidateCsv, SAMPLE_CSV_TEMPLATE } from '@/lib/csvValidator';
-import { createBulkOrders } from '@/lib/orderService';
-import { QuickzyOrder } from '@/types/delivery';
+import React, { useEffect, useMemo, useState } from 'react';
+import { parseAndValidateCsv, SAMPLE_CSV_TEMPLATE, CsvValidationResult } from '@/lib/csvValidator';
+import { createBulkOrders, fetchPricingConfig } from '@/lib/orderService';
+import { fetchRouteMiles } from '@/lib/routeMiles';
+import { CheckoutPanel } from '@/components/CheckoutPanel';
+import {
+  QuickzyOrder,
+  ParcelPricingConfig,
+  DEFAULT_PRICING_CONFIG,
+  PaymentMethod,
+  calculateDeliveryPrice,
+} from '@/types/delivery';
 import {
   UploadCloud,
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
   Download,
-  ArrowRight,
   ShieldAlert,
   Loader2,
+  Route,
 } from 'lucide-react';
 
 interface BulkParcelBookingProps {
   clientId: string;
   clientEmail: string;
+  creditBalancePence: number;
   onBulkCompleted: (orders: QuickzyOrder[]) => void;
+  onCreditChanged: () => void;
 }
+
+// A valid CSV row after its route has been measured and priced
+interface PricedRow {
+  rowNumber: number;
+  // Shape matches CreateOrderSchema input
+  [key: string]: any;
+  estimatedMiles: number;
+  totalPence: number;
+}
+
+const formatGbp = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
 export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
   clientId,
   clientEmail,
+  creditBalancePence,
   onBulkCompleted,
+  onCreditChanged,
 }) => {
-  const [csvContent, setCsvContent] = useState('');
-  const [validationResult, setValidationResult] = useState<ReturnType<typeof parseAndValidateCsv> | null>(
-    null
-  );
+  const [validationResult, setValidationResult] = useState<CsvValidationResult | null>(null);
+  const [pricedRows, setPricedRows] = useState<PricedRow[]>([]);
+  const [routeErrors, setRouteErrors] = useState<CsvValidationResult['invalidRows']>([]);
+  const [pricingConfig, setPricingConfig] = useState<ParcelPricingConfig>(DEFAULT_PRICING_CONFIG);
+  const [isPricing, setIsPricing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState<QuickzyOrder[] | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    fetchPricingConfig().then((cfg) => cfg && setPricingConfig(cfg));
+  }, []);
+
+  const totalPence = useMemo(() => pricedRows.reduce((sum, r) => sum + r.totalPence, 0), [pricedRows]);
+  const allInvalid = [...(validationResult?.invalidRows || []), ...routeErrors];
+
+  const resetAll = () => {
+    setValidationResult(null);
+    setPricedRows([]);
+    setRouteErrors([]);
+    setCreationSuccess(null);
+    setErrorMessage('');
+  };
+
+  // Measure road miles for every valid row in one request, then price on base + per-mile only
+  const priceRows = async (result: CsvValidationResult) => {
+    setIsPricing(true);
+    setErrorMessage('');
+    try {
+      const routes = await fetchRouteMiles(
+        result.validRows.map((r) => ({
+          pickupPostcode: r.pickupAddress.postcode,
+          dropoffPostcode: r.dropoffAddress.postcode,
+        }))
+      );
+
+      const priced: PricedRow[] = [];
+      const failed: CsvValidationResult['invalidRows'] = [];
+
+      result.validRows.forEach((row, i) => {
+        const route = routes[i];
+        if (route?.miles == null) {
+          failed.push({ row: i + 2, data: row, errors: [route?.error || 'Route could not be measured'] });
+          return;
+        }
+        const quote = calculateDeliveryPrice({ type: row.type, estimatedMiles: route.miles }, pricingConfig);
+        priced.push({ ...row, rowNumber: i + 2, estimatedMiles: quote.estimatedMiles, totalPence: quote.totalPence });
+      });
+
+      setPricedRows(priced);
+      setRouteErrors(failed);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Could not calculate route distances.');
+    } finally {
+      setIsPricing(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,9 +114,12 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      setCsvContent(text);
       const result = parseAndValidateCsv(text);
+      setCreationSuccess(null);
+      setRouteErrors([]);
       setValidationResult(result);
+      setPricedRows([]);
+      if (result.validRows.length > 0) priceRows(result);
     };
     reader.readAsText(file);
   };
@@ -59,22 +135,27 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
     document.body.removeChild(a);
   };
 
-  const handleConfirmTransaction = async () => {
-    if (!validationResult || validationResult.validRows.length === 0) return;
+  // Runs after payment succeeds (card or credit)
+  const handlePaid = async (payment: { method: PaymentMethod; reference: string }) => {
     setIsProcessing(true);
     setErrorMessage('');
-
-    const res = await createBulkOrders(clientId, clientEmail, validationResult.validRows);
+    const res = await createBulkOrders(
+      clientId,
+      clientEmail,
+      pricedRows.map(({ rowNumber, totalPence, ...row }) => row),
+      payment
+    );
     setIsProcessing(false);
 
     if (res.success) {
       setCreationSuccess(res.orders);
+      setPricedRows([]);
       onBulkCompleted(res.orders);
+      onCreditChanged();
     } else {
-      setErrorMessage(res.error || 'Failed to create bulk orders in one transaction.');
+      setErrorMessage(res.error || 'Payment received, but the orders could not be created. Contact support with your payment reference.');
     }
   };
-
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6">
@@ -87,7 +168,7 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
             </span>
           </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            Upload parcel manifests for same-day delivery. Validates each London row and executes atomically in one transaction.
+            Upload a manifest. Each row is measured by road miles and priced, then the whole manifest is paid once.
           </p>
         </div>
 
@@ -112,16 +193,14 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
           <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-white">Bulk Transaction Completed!</h3>
+          <h3 className="text-lg font-bold text-white">Payment Received</h3>
           <p className="text-xs text-neutral-300">
-            Successfully created {creationSuccess.length} same-day parcel orders under one transaction.
+            {creationSuccess.length} orders are ready. Our driver will take them and deliver soon.
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
               onClick={() => {
-                setCreationSuccess(null);
-                setValidationResult(null);
-                setCsvContent('');
+                resetAll();
               }}
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl text-xs"
             >
@@ -131,7 +210,7 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
         </div>
       ) : (
         <>
-          {/* File Drag / Drop Area */}
+          {/* Upload */}
           <div className="border-2 border-dashed border-neutral-700/80 hover:border-cyan-500/80 rounded-2xl p-8 text-center transition bg-neutral-950/40">
             <UploadCloud className="w-10 h-10 text-cyan-400 mx-auto mb-3" />
             <p className="text-sm font-bold text-white mb-1">Upload Bulk Parcel CSV</p>
@@ -143,12 +222,7 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
               <label className="cursor-pointer px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-bold transition flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Choose CSV File</span>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+                <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
               </label>
 
               <button
@@ -162,7 +236,6 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
             </div>
           </div>
 
-          {/* Validation Report Table */}
           {validationResult && (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs">
@@ -171,25 +244,24 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
                 </span>
                 <div className="flex gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                    ✓ {validationResult.validRows.length} Valid Rows
+                    ✓ {pricedRows.length} Priced Rows
                   </span>
-                  {validationResult.invalidRows.length > 0 && (
+                  {allInvalid.length > 0 && (
                     <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-bold">
-                      ✕ {validationResult.invalidRows.length} Errors Found
+                      ✕ {allInvalid.length} Errors Found
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Error Rows Reporting */}
-              {validationResult.invalidRows.length > 0 && (
+              {allInvalid.length > 0 && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-red-400">
                     <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>Row-Level Errors Found (Please fix before confirming transaction)</span>
+                    <span>Row-Level Errors (fix these rows and re-upload before paying)</span>
                   </div>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                    {validationResult.invalidRows.map((err, i) => (
+                    {allInvalid.map((err, i) => (
                       <div key={i} className="text-[11px] bg-red-950/40 p-2 rounded border border-red-800/40">
                         <span className="font-mono font-bold text-red-300 mr-2">Row #{err.row}:</span>
                         <span className="text-red-200">{err.errors.join(' • ')}</span>
@@ -199,75 +271,68 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
                 </div>
               )}
 
-              {/* Valid Rows Preview */}
-              <div className="overflow-x-auto border border-neutral-800 rounded-xl bg-neutral-950/80">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-neutral-800 text-neutral-300 border-b border-neutral-700">
-                    <tr>
-                      <th className="p-2.5">Recipient</th>
-                      <th className="p-2.5">Type</th>
-                      <th className="p-2.5">Pickup (London)</th>
-                      <th className="p-2.5">Drop-off (London)</th>
-                      <th className="p-2.5">Weight / Dimensions</th>
-                      <th className="p-2.5">Restricted</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-800 text-neutral-300">
-                    {validationResult.validRows.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-neutral-900/50">
-                        <td className="p-2.5 font-bold text-white">{row.recipientName}</td>
-                        <td className="p-2.5 uppercase font-mono text-[10px] text-cyan-400">{row.type}</td>
-                        <td className="p-2.5 font-mono text-[11px] text-emerald-400">
-                          {row.pickupAddress.postcode}
-                        </td>
-                        <td className="p-2.5 font-mono text-[11px] text-cyan-400">
-                          {row.dropoffAddress.postcode}
-                        </td>
-                        <td className="p-2.5 text-[11px]">
-                          {row.parcel.weightKg}kg • {row.parcel.lengthCm}x{row.parcel.widthCm}x{row.parcel.heightCm}cm
-                        </td>
-                        <td className="p-2.5">
-                          {row.parcel.isRestricted ? (
-                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
-                              Yes ⚠️
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-neutral-500">No</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {isPricing && (
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-300 py-4">
+                  <Route className="w-4 h-4 text-cyan-400 animate-pulse" /> Measuring road miles for each row...
+                </div>
+              )}
 
-              {/* Action Button */}
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  disabled={
-                    isProcessing ||
-                    validationResult.validRows.length === 0 ||
-                    validationResult.invalidRows.length > 0
-                  }
-                  onClick={handleConfirmTransaction}
-                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-2 disabled:opacity-40 transition shadow-lg shadow-emerald-500/20"
-                >
+              {pricedRows.length > 0 && (
+                <div className="overflow-x-auto border border-neutral-800 rounded-xl bg-neutral-950/80">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-neutral-800 text-neutral-300 border-b border-neutral-700">
+                      <tr>
+                        <th className="p-2.5">Recipient</th>
+                        <th className="p-2.5">Type</th>
+                        <th className="p-2.5">Pickup → Drop-off</th>
+                        <th className="p-2.5">Miles</th>
+                        <th className="p-2.5 text-right">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800 text-neutral-300">
+                      {pricedRows.map((row) => (
+                        <tr key={row.rowNumber} className="hover:bg-neutral-900/50">
+                          <td className="p-2.5 font-bold text-white">{row.recipientName}</td>
+                          <td className="p-2.5 uppercase font-mono text-[10px] text-cyan-400">{row.type}</td>
+                          <td className="p-2.5 font-mono text-[11px]">
+                            <span className="text-emerald-400">{row.pickupAddress.postcode}</span>
+                            <span className="text-neutral-500"> → </span>
+                            <span className="text-cyan-400">{row.dropoffAddress.postcode}</span>
+                          </td>
+                          <td className="p-2.5 font-mono">{row.estimatedMiles.toFixed(2)}</td>
+                          <td className="p-2.5 text-right font-bold text-emerald-400">{formatGbp(row.totalPence)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t border-neutral-700 bg-neutral-900">
+                      <tr>
+                        <td colSpan={4} className="p-2.5 text-right text-neutral-400">Manifest total</td>
+                        <td className="p-2.5 text-right text-lg font-black text-emerald-400">{formatGbp(totalPence)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {pricedRows.length > 0 && allInvalid.length === 0 && (
+                <div className="pt-2">
                   {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Creating Orders in One Transaction...</span>
-                    </>
+                    <div className="flex items-center justify-center gap-2 text-xs text-neutral-300 py-3">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Payment received. Creating {pricedRows.length} orders...
+                    </div>
                   ) : (
-                    <>
-                      <span>
-                        Confirm & Create All {validationResult.validRows.length} Orders in Single Transaction
-                      </span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
+                    <CheckoutPanel
+                      amountPence={totalPence}
+                      description={`Quickzy bulk manifest x${pricedRows.length}`}
+                      customerEmail={clientEmail}
+                      purpose="order"
+                      creditBalancePence={creditBalancePence}
+                      payLabel={`Pay ${formatGbp(totalPence)} for ${pricedRows.length} orders`}
+                      onPaid={handlePaid}
+                    />
                   )}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           )}
         </>

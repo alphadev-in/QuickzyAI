@@ -74,6 +74,22 @@ export interface QuickzyOrder {
     location?: string;
   }[];
   notificationAlert?: string;
+  estimatedMiles?: number;
+  paymentMethod?: PaymentMethod;
+  paymentReference?: string;
+}
+
+// Payments: card via Stripe, or credit balance bought in advance
+export type PaymentMethod = 'stripe' | 'credit';
+
+// Customer module: a named customer with one or more saved London addresses
+export interface CustomerRecord {
+  id: string;
+  ownerEmail: string;
+  name: string;
+  addresses: AddressItem[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Bulk Import Record
@@ -93,9 +109,6 @@ export interface BulkImportRecord {
 export interface PriceQuote {
   baseFeePence: number;
   distanceFeePence: number;
-  weightFeePence: number;
-  volumetricFeePence: number;
-  restrictedHandlingFeePence: number;
   totalPence: number;
   totalGbp: number;
   estimatedMiles: number;
@@ -136,33 +149,22 @@ export function evaluateSameDayCutoff(requestedDate?: Date): {
 export interface ParcelPricingConfig {
   baseFeePence: number;
   perMilePence: number;
-  weightPerKgAbove2KgPence: number;
-  volumetricRatePence: number;
-  restrictedHandlingPence: number;
 }
 
 export const DEFAULT_PRICING_CONFIG: ParcelPricingConfig = {
   baseFeePence: 450,
   perMilePence: 120,
-  weightPerKgAbove2KgPence: 50,
-  volumetricRatePence: 40,
-  restrictedHandlingPence: 350,
 };
 
-// Calculate delivery price based on London zones / distance and parcel specs
+// Base + per-mile pricing only. No weight, volumetric or restricted-item surcharges.
 export function calculateDeliveryPrice(
   params: {
     type: BookingType;
-    weightKg?: number;
-    lengthCm?: number;
-    widthCm?: number;
-    heightCm?: number;
-    isRestricted?: boolean;
     estimatedMiles?: number;
   },
   config: ParcelPricingConfig = DEFAULT_PRICING_CONFIG
 ): PriceQuote {
-  const miles = Math.max(1, params.estimatedMiles || 3.5);
+  const miles = Math.max(1, Math.round((params.estimatedMiles || 1) * 100) / 100);
   let baseFee = config.baseFeePence;
 
   if (params.type === 'pharmacy') {
@@ -171,31 +173,12 @@ export function calculateDeliveryPrice(
     baseFee = Math.round(config.baseFeePence * 0.9);
   }
 
-  // Dynamic distance fee per mile
   const distanceFee = Math.round(miles * config.perMilePence);
-
-  // Weight fee: per kg above 2kg
-  const weight = params.weightKg || 1;
-  const weightFee = weight > 2 ? Math.round((weight - 2) * config.weightPerKgAbove2KgPence) : 0;
-
-  // Volumetric check: (L x W x H) / 5000
-  const l = params.lengthCm || 10;
-  const w = params.widthCm || 10;
-  const h = params.heightCm || 10;
-  const volumetricWeight = (l * w * h) / 5000;
-  const volumetricFee = volumetricWeight > 3 ? Math.round((volumetricWeight - 3) * config.volumetricRatePence) : 0;
-
-  // Restricted items verification & compliance fee
-  const restrictedHandlingFee = params.isRestricted ? config.restrictedHandlingPence : 0;
-
-  const totalPence = baseFee + distanceFee + weightFee + volumetricFee + restrictedHandlingFee;
+  const totalPence = baseFee + distanceFee;
 
   return {
     baseFeePence: baseFee,
     distanceFeePence: distanceFee,
-    weightFeePence: weightFee,
-    volumetricFeePence: volumetricFee,
-    restrictedHandlingFeePence: restrictedHandlingFee,
     totalPence,
     totalGbp: Number((totalPence / 100).toFixed(2)),
     estimatedMiles: miles,
@@ -234,6 +217,7 @@ export const CreateOrderSchema = z.object({
   scheduledFor: z.string().optional(),
   parcel: ParcelSchema.optional(),
   specialNotes: z.string().optional(),
+  estimatedMiles: z.number().positive().max(200).optional(),
 });
 
 export const CsvRowSchema = z.object({

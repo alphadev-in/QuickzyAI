@@ -63,6 +63,26 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Customer module: each user manages only their own customers
+    match /customers/{customerId} {
+      allow read: if isAuthenticated() && (request.auth.token.email == resource.data.ownerEmail || isAdmin());
+      allow create, update: if isAuthenticated() && (request.auth.token.email == request.resource.data.ownerEmail || isAdmin());
+      allow delete: if isAuthenticated() && (request.auth.token.email == resource.data.ownerEmail || isAdmin());
+    }
+
+    // Prepaid credit balance (keyed by customer email)
+    // TODO before production: move balance writes to a server-side Stripe webhook (Admin SDK)
+    match /customer_credit/{email} {
+      allow read: if isAuthenticated() && (request.auth.token.email == email || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.token.email == email || isAdmin());
+    }
+
+    // Credit audit trail
+    match /credit_ledger/{entryId} {
+      allow read: if isAuthenticated() && (request.auth.token.email == resource.data.ownerEmail || isAdmin());
+      allow create: if isAuthenticated() && request.auth.token.email == request.resource.data.ownerEmail;
+    }
+
     // Bulk Imports Collection
     match /bulk_imports/{importId} {
       allow read: if isAuthenticated() && (request.auth.token.email == resource.data.clientId || isAdmin());

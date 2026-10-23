@@ -5,15 +5,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = CreateOrderSchema.parse(body);
+    if (!validated.estimatedMiles) {
+      return NextResponse.json({ error: 'estimatedMiles is required (see /api/v1/distance)' }, { status: 400 });
+    }
 
     const cutoff = evaluateSameDayCutoff();
     const quote = calculateDeliveryPrice({
       type: validated.type,
-      weightKg: validated.parcel?.weightKg,
-      lengthCm: validated.parcel?.lengthCm,
-      widthCm: validated.parcel?.widthCm,
-      heightCm: validated.parcel?.heightCm,
-      isRestricted: validated.parcel?.isRestricted,
+      estimatedMiles: validated.estimatedMiles,
     });
 
     const orderId = `QZK-API-${Date.now().toString(36).toUpperCase()}`;

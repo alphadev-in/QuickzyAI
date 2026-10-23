@@ -16,14 +16,15 @@ import {
   UserCircle,
   ChevronDown,
   Package,
+  Users,
 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenAuth: () => void;
   onOpenAddressBook: () => void;
   currentUser: { email: string; role: string; name: string } | null;
-  activeTab: 'storefront' | 'booking' | 'bulk' | 'tracking' | 'merchant' | 'driver' | 'dispatch';
-  setActiveTab: (tab: 'storefront' | 'booking' | 'bulk' | 'tracking' | 'merchant' | 'driver' | 'dispatch') => void;
+  activeTab: 'storefront' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'merchant' | 'driver' | 'dispatch';
+  setActiveTab: (tab: 'storefront' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'merchant' | 'driver' | 'dispatch') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -67,12 +68,14 @@ export const Header: React.FC<HeaderProps> = ({
     if (isClient) {
       return [
         { id: 'booking', label: 'Book Couriers', icon: <Package className="w-3.5 h-3.5" />, color: 'emerald' },
+        { id: 'customers', label: 'Customers', icon: <Users className="w-3.5 h-3.5" />, color: 'emerald' },
         { id: 'tracking', label: 'My Orders', icon: <Activity className="w-3.5 h-3.5" />, color: 'emerald' },
       ];
     }
     if (isAdmin) {
       return [
         { id: 'booking', label: 'Book Couriers', icon: <Package className="w-3.5 h-3.5" />, color: 'emerald' },
+        { id: 'customers', label: 'Customers', icon: <Users className="w-3.5 h-3.5" />, color: 'emerald' },
         { id: 'dispatch', label: 'Fleet Dispatch', icon: <Compass className="w-3.5 h-3.5" />, color: 'emerald' },
         { id: 'driver', label: 'Driver Console', icon: <Bike className="w-3.5 h-3.5" />, color: 'amber' },
         { id: 'tracking', label: 'My Orders', icon: <Activity className="w-3.5 h-3.5" />, color: 'emerald' },
@@ -81,6 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
     // customer
     return [
       { id: 'booking', label: 'Book Courier', icon: <CalendarCheck className="w-3.5 h-3.5" />, color: 'emerald' },
+      { id: 'customers', label: 'Customers', icon: <Users className="w-3.5 h-3.5" />, color: 'emerald' },
       { id: 'tracking', label: 'My Orders', icon: <Activity className="w-3.5 h-3.5" />, color: 'emerald' },
     ];
   };

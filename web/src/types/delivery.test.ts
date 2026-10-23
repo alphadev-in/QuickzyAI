@@ -27,22 +27,28 @@ function runTests() {
   // 2. Pricing calculations
   const standardParcel = calculateDeliveryPrice({
     type: 'parcel',
-    weightKg: 1,
     estimatedMiles: 3,
   });
   assert(standardParcel.baseFeePence === 450, 'Standard parcel base fee is 450p (£4.50)');
   assert(standardParcel.distanceFeePence === 360, '3 miles distance fee is 360p (£3.60)');
   assert(standardParcel.totalPence === 810, 'Total standard delivery is 810p (£8.10)');
 
-  const restrictedPharmacy = calculateDeliveryPrice({
+  // Pharmacy: base + per-mile only. Weight and restricted items carry no surcharge.
+  const pharmacy = calculateDeliveryPrice({
     type: 'pharmacy',
-    weightKg: 3,
-    isRestricted: true,
     estimatedMiles: 4,
   });
-  assert(restrictedPharmacy.baseFeePence === 550, 'Pharmacy base fee is 550p (£5.50)');
-  assert(restrictedPharmacy.restrictedHandlingFeePence === 350, 'Restricted handling fee is 350p (£3.50)');
-  assert(restrictedPharmacy.weightFeePence === 50, 'Weight over 2kg incurs 50p surcharge');
+  assert(pharmacy.baseFeePence === 540, 'Pharmacy base fee is 540p (£5.40)');
+  assert(pharmacy.distanceFeePence === 480, '4 miles at 120p/mile is 480p (£4.80)');
+  assert(pharmacy.totalPence === 1020, 'Pharmacy total is base + per-mile (1020p)');
+
+  // Heavy restricted parcel: still per-mile only, no weight or handling surcharge
+  const heavyRestricted = calculateDeliveryPrice({ type: 'parcel', estimatedMiles: 4 });
+  assert(heavyRestricted.totalPence === 930, 'Parcel total does not change with weight or restriction (930p)');
+
+  // Miles below 1 are billed as 1 mile
+  const shortHop = calculateDeliveryPrice({ type: 'parcel', estimatedMiles: 0.2 });
+  assert(shortHop.estimatedMiles === 1, 'Distances under 1 mile are billed as 1 mile');
 
   // 3. Same-day cutoff logic
   const earlyMorning = new Date('2026-10-21T09:00:00Z');

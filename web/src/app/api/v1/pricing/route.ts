@@ -4,7 +4,12 @@ import { calculateDeliveryPrice, evaluateSameDayCutoff, isValidLondonPostcode } 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, weightKg, lengthCm, widthCm, heightCm, isRestricted, pickupPostcode, dropoffPostcode } = body;
+    const { type, estimatedMiles, pickupPostcode, dropoffPostcode } = body;
+
+    const miles = Number(estimatedMiles);
+    if (!Number.isFinite(miles) || miles <= 0) {
+      return NextResponse.json({ error: 'estimatedMiles is required (see /api/v1/distance)' }, { status: 400 });
+    }
 
     if (pickupPostcode && !isValidLondonPostcode(pickupPostcode)) {
       return NextResponse.json(
@@ -23,12 +28,7 @@ export async function POST(req: NextRequest) {
     const cutoff = evaluateSameDayCutoff();
     const pricing = calculateDeliveryPrice({
       type: type || 'parcel',
-      weightKg: Number(weightKg) || 1,
-      lengthCm: Number(lengthCm) || 10,
-      widthCm: Number(widthCm) || 10,
-      heightCm: Number(heightCm) || 10,
-      isRestricted: Boolean(isRestricted),
-      estimatedMiles: 4.2, // simulated London zone distance
+      estimatedMiles: miles,
     });
 
     return NextResponse.json({

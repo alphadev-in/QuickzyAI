@@ -9,6 +9,7 @@ import {
   Compass,
   UserCircle,
   Home,
+  Users,
 } from 'lucide-react';
 import { UserRole } from '@/types/delivery';
 
@@ -54,7 +55,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       return [
         { id: 'booking', label: 'Book', icon: <Package className="w-5 h-5" />, action: () => setActiveTab('booking') },
         { id: 'tracking', label: 'My Orders', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
-        { id: 'addresses', label: 'Addresses', icon: <span className="text-base">📍</span>, action: onOpenAddressBook },
+        { id: 'customers', label: 'Customers', icon: <Users className="w-5 h-5" />, action: () => setActiveTab('customers') },
         { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
       ];
     }
@@ -73,7 +74,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     return [
       { id: 'booking', label: 'Book', icon: <CalendarCheck className="w-5 h-5" />, action: () => setActiveTab('booking') },
       { id: 'tracking', label: 'My Orders', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
-      { id: 'addresses', label: 'Addresses', icon: <span className="text-base">📍</span>, action: onOpenAddressBook },
+      { id: 'customers', label: 'Customers', icon: <Users className="w-5 h-5" />, action: () => setActiveTab('customers') },
       { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
     ];
   };

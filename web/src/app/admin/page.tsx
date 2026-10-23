@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG } from '@/types/delivery';
 import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig } from '@/lib/orderService';
+import { fetchRouteMiles } from '@/lib/routeMiles';
 
 const ADMIN_AUTHORIZED_EMAIL = 'prajapatikaranc@gmail.com';
 
@@ -257,8 +258,16 @@ export default function AdminDashboardPage() {
 
   const handleCreateOrderAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const [route] = await fetchRouteMiles([
+      { pickupPostcode: newPickupPostcode.trim(), dropoffPostcode: newDropoffPostcode.trim() },
+    ]);
+    if (route?.miles == null) {
+      alert(route?.error || 'Could not calculate route distance');
+      return;
+    }
     await createOrder('admin_override', ADMIN_AUTHORIZED_EMAIL, 'admin', {
       type: newOrderType,
+      estimatedMiles: route.miles,
       pickupAddress: {
         line1: newPickup,
         postcode: newPickupPostcode.toUpperCase(),
@@ -671,38 +680,6 @@ export default function AdminDashboardPage() {
                         setPricingConfig({
                           ...pricingConfig,
                           perMilePence: Math.round(parseFloat(e.target.value || '0') * 100),
-                        })
-                      }
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-neutral-400 block font-semibold">Weight &gt;2kg/kg (£)</label>
-                    <input
-                      type="number"
-                      step="0.10"
-                      value={(pricingConfig.weightPerKgAbove2KgPence / 100).toFixed(2)}
-                      onChange={(e) =>
-                        setPricingConfig({
-                          ...pricingConfig,
-                          weightPerKgAbove2KgPence: Math.round(parseFloat(e.target.value || '0') * 100),
-                        })
-                      }
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-neutral-400 block font-semibold">Volumetric/kg (£)</label>
-                    <input
-                      type="number"
-                      step="0.10"
-                      value={(pricingConfig.volumetricRatePence / 100).toFixed(2)}
-                      onChange={(e) =>
-                        setPricingConfig({
-                          ...pricingConfig,
-                          volumetricRatePence: Math.round(parseFloat(e.target.value || '0') * 100),
                         })
                       }
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"

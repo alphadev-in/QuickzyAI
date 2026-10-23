@@ -13,8 +13,12 @@ import { AuthModal } from '@/components/AuthModal';
 import { DriverCockpit } from '@/components/DriverCockpit';
 import { RouteBatcherCockpit } from '@/components/RouteBatcherCockpit';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { AddressItem, QuickzyOrder, UserRole } from '@/types/delivery';
+import { CustomerModule } from '@/components/CustomerModule';
+import { CreditWallet } from '@/components/CreditWallet';
+import { AddressItem, CustomerRecord, QuickzyOrder, UserRole } from '@/types/delivery';
 import { fetchUserAddresses, fetchAllOrders } from '@/lib/orderService';
+import { fetchCustomers } from '@/lib/customerService';
+import { getCreditBalancePence } from '@/lib/creditService';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -33,7 +37,7 @@ import {
   Compass,
 } from 'lucide-react';
 
-type MainTab = 'index' | 'booking' | 'bulk' | 'tracking' | 'storefront' | 'merchant' | 'driver' | 'dispatch';
+type MainTab = 'index' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'storefront' | 'merchant' | 'driver' | 'dispatch';
 
 // Sub-tabs within Book Couriers for business/admin
 type BookingSubTab = 'single' | 'bulk';
@@ -60,6 +64,8 @@ function MainApplicationContent() {
 
   const [savedAddresses, setSavedAddresses] = useState<AddressItem[]>([]);
   const [orders, setOrders] = useState<QuickzyOrder[]>([]);
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [creditBalancePence, setCreditBalancePence] = useState(0);
 
   // Firebase auth listener
   useEffect(() => {
@@ -120,6 +126,8 @@ function MainApplicationContent() {
     if (!currentUser) {
       setSavedAddresses([]);
       setOrders([]);
+      setCustomers([]);
+      setCreditBalancePence(0);
       return;
     }
     const addrs = await fetchUserAddresses(currentUser.email);
@@ -127,6 +135,18 @@ function MainApplicationContent() {
 
     const ords = await fetchAllOrders(currentUser.email, currentUser.role);
     setOrders(ords);
+
+    try {
+      setCustomers(await fetchCustomers(currentUser.email));
+    } catch (err) {
+      console.warn('Could not load customers:', err);
+    }
+
+    try {
+      setCreditBalancePence(await getCreditBalancePence(currentUser.email));
+    } catch (err) {
+      console.warn('Could not load credit balance:', err);
+    }
   };
 
   useEffect(() => {
@@ -144,9 +164,9 @@ function MainApplicationContent() {
     else setSelectedDropoff(addr);
   };
 
-  const handleOrderCreated = (newOrder: QuickzyOrder) => {
-    setOrders((prev) => [newOrder, ...prev]);
-    setActiveTab('tracking');
+  // Paid orders stay on the booking screen so the "driver will deliver soon" message is seen
+  const handleOrdersCreated = (newOrders: QuickzyOrder[]) => {
+    setOrders((prev) => [...newOrders, ...prev]);
   };
 
   const handleSignOutUser = async () => {
@@ -389,6 +409,14 @@ function MainApplicationContent() {
                 </div>
               )}
 
+              {currentUser && (
+                <CreditWallet
+                  customerEmail={currentUser.email}
+                  balancePence={creditBalancePence}
+                  onChanged={loadData}
+                />
+              )}
+
               {activeTab === 'booking' && (
                 <SingleBookingForm
                   userId={currentUser?.email || 'authenticated_user'}
@@ -396,8 +424,11 @@ function MainApplicationContent() {
                   displayName={currentUser?.name}
                   role={currentUser?.role || 'customer'}
                   savedAddresses={savedAddresses}
+                  customers={customers}
+                  creditBalancePence={creditBalancePence}
                   onOpenAddressBook={handleOpenAddressBookForSelection}
-                  onOrderCreated={handleOrderCreated}
+                  onOrdersCreated={handleOrdersCreated}
+                  onCreditChanged={loadData}
                   selectedPickupAddress={selectedPickup}
                   selectedDropoffAddress={selectedDropoff}
                   profileDeliveryStream={currentUser?.deliveryStream || null}
@@ -409,13 +440,21 @@ function MainApplicationContent() {
                 <BulkParcelBooking
                   clientId={currentUser?.email || 'client_account'}
                   clientEmail={currentUser?.email || 'client@quickzy.co.uk'}
-                  onBulkCompleted={(newOrders) => {
-                    setOrders((prev) => [...newOrders, ...prev]);
-                    setActiveTab('tracking');
-                  }}
+                  creditBalancePence={creditBalancePence}
+                  onBulkCompleted={handleOrdersCreated}
+                  onCreditChanged={loadData}
                 />
               )}
             </div>
+          )}
+
+          {/* Customer module */}
+          {activeTab === 'customers' && currentUser && (
+            <CustomerModule
+              ownerEmail={currentUser.email}
+              customers={customers}
+              onChanged={loadData}
+            />
           )}
 
           {/* Tracking */}
@@ -470,10 +509,9 @@ function MainApplicationContent() {
                 <BulkParcelBooking
                   clientId={currentUser?.email || 'admin'}
                   clientEmail={currentUser?.email || 'admin@quickzy.co.uk'}
-                  onBulkCompleted={(newOrders) => {
-                    setOrders((prev) => [...newOrders, ...prev]);
-                    setActiveTab('tracking');
-                  }}
+                  creditBalancePence={creditBalancePence}
+                  onBulkCompleted={handleOrdersCreated}
+                  onCreditChanged={loadData}
                 />
               )}
             </div>

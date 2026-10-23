@@ -20,6 +20,7 @@ import {
   UserRole,
   ParcelPricingConfig,
   DEFAULT_PRICING_CONFIG,
+  PaymentMethod,
 } from '@/types/delivery';
 
 export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
@@ -119,20 +120,18 @@ export async function createOrder(
   role: UserRole,
   orderData: Parameters<typeof CreateOrderSchema.parse>[0],
   pricingConfig?: ParcelPricingConfig,
-  displayName?: string
+  displayName?: string,
+  payment?: { method: PaymentMethod; reference: string },
+  bulkImportId?: string
 ): Promise<QuickzyOrder> {
   const validated = CreateOrderSchema.parse(orderData);
+  if (!validated.estimatedMiles) {
+    throw new Error('Route distance is missing. Calculate miles before booking.');
+  }
   const cutoffInfo = evaluateSameDayCutoff();
 
   const quote = calculateDeliveryPrice(
-    {
-      type: validated.type,
-      weightKg: validated.parcel?.weightKg,
-      lengthCm: validated.parcel?.lengthCm,
-      widthCm: validated.parcel?.widthCm,
-      heightCm: validated.parcel?.heightCm,
-      isRestricted: validated.parcel?.isRestricted,
-    },
+    { type: validated.type, estimatedMiles: validated.estimatedMiles },
     pricingConfig || DEFAULT_PRICING_CONFIG
   );
 
@@ -146,6 +145,13 @@ export async function createOrder(
     role,
     type: validated.type,
     status: 'booked',
+    estimatedMiles: quote.estimatedMiles,
+    paymentMethod: payment?.method,
+    paymentReference: payment?.reference,
+    bulkImportId,
+    notificationAlert: payment
+      ? 'Payment received. Our driver will collect and deliver your order soon.'
+      : undefined,
     pickupAddress: { ...validated.pickupAddress, id: `pk_${Date.now()}` },
     dropoffAddress: { ...validated.dropoffAddress, id: `dp_${Date.now()}` },
     timeSlot: validated.timeSlot,
@@ -193,15 +199,15 @@ export async function createOrder(
 export async function createBulkOrders(
   clientId: string,
   clientEmail: string,
-  ordersToCreate: Parameters<typeof CreateOrderSchema.parse>[0][]
+  ordersToCreate: Parameters<typeof CreateOrderSchema.parse>[0][],
+  payment?: { method: PaymentMethod; reference: string }
 ): Promise<{ success: boolean; orders: QuickzyOrder[]; error?: string }> {
   try {
     const createdOrders: QuickzyOrder[] = [];
     const importId = `BULK-${Date.now().toString(36).toUpperCase()}`;
 
     for (const data of ordersToCreate) {
-      const order = await createOrder(clientId, clientEmail, 'client', data);
-      order.bulkImportId = importId;
+      const order = await createOrder(clientId, clientEmail, 'client', data, undefined, undefined, payment, importId);
       createdOrders.push(order);
     }
 
