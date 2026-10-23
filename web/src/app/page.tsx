@@ -393,6 +393,7 @@ function MainApplicationContent() {
                 <SingleBookingForm
                   userId={currentUser?.email || 'authenticated_user'}
                   userEmail={currentUser?.email || 'user@quickzy.co.uk'}
+                  displayName={currentUser?.name}
                   role={currentUser?.role || 'customer'}
                   savedAddresses={savedAddresses}
                   onOpenAddressBook={handleOpenAddressBookForSelection}

@@ -30,6 +30,7 @@ import {
 interface SingleBookingFormProps {
   userId: string;
   userEmail: string;
+  displayName?: string;
   role: 'customer' | 'client' | 'admin' | 'driver';
   savedAddresses: AddressItem[];
   onOpenAddressBook: (mode: 'pickup' | 'dropoff') => void;
@@ -43,6 +44,7 @@ interface SingleBookingFormProps {
 export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   userId,
   userEmail,
+  displayName,
   role,
   savedAddresses,
   onOpenAddressBook,
@@ -183,7 +185,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           isRestricted,
           restrictedCategory: isRestricted ? restrictedCategory : undefined,
         },
-      }, pricingConfig);
+      }, pricingConfig, displayName);
+
 
       setSuccessOrder(order);
       onOrderCreated(order);
@@ -425,108 +428,151 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
         </div>
       </div>
 
-      {/* 3. Parcel Dimensions & Weight & Restricted Items */}
-      <div className="mt-6 bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
-            3. Parcel Weight & Dimensions
-          </h4>
-          <span className="text-[10px] text-neutral-500">Max 30kg per delivery</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[11px] text-neutral-400 block mb-1">Weight (kg)</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              max="30"
-              value={weightKg}
-              onChange={(e) => setWeightKg(parseFloat(e.target.value) || 0.1)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
+      {/* 3. Parcel Details — conditionally shown based on delivery type */}
+      {bookingType !== 'pharmacy' ? (
+        <div className="mt-6 bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
+              3. Parcel Weight &amp; Dimensions
+            </h4>
+            <span className="text-[10px] text-neutral-500">Max 30kg per delivery</span>
           </div>
-          <div>
-            <label className="text-[11px] text-neutral-400 block mb-1">Length (cm)</label>
-            <input
-              type="number"
-              min="5"
-              value={lengthCm}
-              onChange={(e) => setLengthCm(parseInt(e.target.value) || 5)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] text-neutral-400 block mb-1">Width (cm)</label>
-            <input
-              type="number"
-              min="5"
-              value={widthCm}
-              onChange={(e) => setWidthCm(parseInt(e.target.value) || 5)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] text-neutral-400 block mb-1">Height (cm)</label>
-            <input
-              type="number"
-              min="5"
-              value={heightCm}
-              onChange={(e) => setHeightCm(parseInt(e.target.value) || 5)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-        </div>
 
-        <div>
-          <label className="text-[11px] text-neutral-400 block mb-1">Contents Description *</label>
-          <input
-            type="text"
-            required
-            value={contentsDescription}
-            onChange={(e) => setContentsDescription(e.target.value)}
-            placeholder="e.g. Diagnostic kit, artisan bread loaves, or confidential contracts"
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-          />
-        </div>
-
-        {/* Restricted Items Flag */}
-        <div className="pt-2 border-t border-neutral-800/80">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isRestricted}
-              onChange={(e) => setIsRestricted(e.target.checked)}
-              className="rounded bg-neutral-900 border-neutral-700 text-emerald-500 focus:ring-0 w-4 h-4"
-            />
-            <span className="text-xs font-semibold text-neutral-200">
-              Parcel contains regulated or restricted items (Medicines, Lithium Batteries, Fragile Glass)
-            </span>
-          </label>
-
-          {isRestricted && (
-            <div className="mt-3 pl-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] text-neutral-400 block mb-1">Regulated Category</label>
-                <select
-                  value={restrictedCategory}
-                  onChange={(e) => setRestrictedCategory(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="Medicines & Therapeutics">Medicines & Prescription Therapeutics</option>
-                  <option value="Lithium Ion Batteries">Lithium Ion Batteries / Electronics</option>
-                  <option value="Clinical Samples">Clinical Diagnostic Samples</option>
-                  <option value="High-Value Fragile">High-Value Fine Fragile</option>
-                </select>
-              </div>
-              <p className="text-[11px] text-emerald-400/90 self-center">
-                ✓ Special compliance dispatch bag and verification protocol enabled (+£3.50 handling).
-              </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[11px] text-neutral-400 block mb-1">Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                max="30"
+                value={weightKg}
+                onChange={(e) => setWeightKg(parseFloat(e.target.value) || 0.1)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
             </div>
-          )}
+            <div>
+              <label className="text-[11px] text-neutral-400 block mb-1">Length (cm)</label>
+              <input
+                type="number"
+                min="5"
+                value={lengthCm}
+                onChange={(e) => setLengthCm(parseInt(e.target.value) || 5)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-neutral-400 block mb-1">Width (cm)</label>
+              <input
+                type="number"
+                min="5"
+                value={widthCm}
+                onChange={(e) => setWidthCm(parseInt(e.target.value) || 5)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-neutral-400 block mb-1">Height (cm)</label>
+              <input
+                type="number"
+                min="5"
+                value={heightCm}
+                onChange={(e) => setHeightCm(parseInt(e.target.value) || 5)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] text-neutral-400 block mb-1">Contents Description *</label>
+            <input
+              type="text"
+              required
+              value={contentsDescription}
+              onChange={(e) => setContentsDescription(e.target.value)}
+              placeholder="e.g. Diagnostic kit, artisan bread loaves, or confidential contracts"
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-neutral-800/80">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRestricted}
+                onChange={(e) => setIsRestricted(e.target.checked)}
+                className="rounded bg-neutral-900 border-neutral-700 text-emerald-500 focus:ring-0 w-4 h-4"
+              />
+              <span className="text-xs font-semibold text-neutral-200">
+                Parcel contains regulated or restricted items (Medicines, Lithium Batteries, Fragile Glass)
+              </span>
+            </label>
+
+            {isRestricted && (
+              <div className="mt-3 pl-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-neutral-400 block mb-1">Regulated Category</label>
+                  <select
+                    value={restrictedCategory}
+                    onChange={(e) => setRestrictedCategory(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Medicines &amp; Therapeutics">Medicines &amp; Prescription Therapeutics</option>
+                    <option value="Lithium Ion Batteries">Lithium Ion Batteries / Electronics</option>
+                    <option value="Clinical Samples">Clinical Diagnostic Samples</option>
+                    <option value="High-Value Fragile">High-Value Fine Fragile</option>
+                  </select>
+                </div>
+                <p className="text-[11px] text-emerald-400/90 self-center">
+                  ✓ Special compliance dispatch bag and verification protocol enabled (+£3.50 handling).
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Pharmacy: no weight/dimensions — just description + restricted flag */
+        <div className="mt-6 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Pill className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+              3. Pharmacy Delivery Details
+            </h4>
+            <span className="ml-auto text-[10px] text-emerald-400/70 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              Within 10 miles
+            </span>
+          </div>
+          <p className="text-[11px] text-neutral-400">
+            Pharmacy parcels are handled under chain-of-custody protocol. Weight and dimensions are managed by our dispatch team. Delivery guaranteed within 10 miles.
+          </p>
+
+          <div>
+            <label className="text-[11px] text-neutral-400 block mb-1">Prescription / Contents Description *</label>
+            <input
+              type="text"
+              required
+              value={contentsDescription}
+              onChange={(e) => setContentsDescription(e.target.value)}
+              placeholder="e.g. Prescription bag for patient John Smith, NHS ref 12345"
+              className="w-full bg-neutral-900 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-emerald-500/10">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRestricted}
+                onChange={(e) => setIsRestricted(e.target.checked)}
+                className="rounded bg-neutral-900 border-neutral-700 text-emerald-500 focus:ring-0 w-4 h-4"
+              />
+              <span className="text-xs font-semibold text-neutral-200">
+                Contains controlled substances or requires cold-chain (+£3.50 handling)
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* 4. Time Slot & Summary Pricing */}
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-neutral-800">

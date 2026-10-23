@@ -110,8 +110,9 @@ export default function FAQPage() {
         </div>
 
         {/* CTA */}
-        <div className="p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-4 shadow-xl">
-          <h2 className="text-2xl font-black text-white">Still have questions?</h2>
+        <div className="p-8 rounded-3xl border text-center space-y-4 shadow-xl"
+          style={{ background: 'var(--card-bg, #171717)', borderColor: 'var(--card-border, #262626)' }}>
+          <h2 className="text-2xl font-black" style={{ color: 'var(--foreground)' }}>Still have questions?</h2>
           <p className="text-xs text-neutral-400 max-w-md mx-auto">
             Our London dispatcher team is on standby 7 days a week to support high-priority parcel consignments.
           </p>

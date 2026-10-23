@@ -118,7 +118,8 @@ export async function createOrder(
   userEmail: string,
   role: UserRole,
   orderData: Parameters<typeof CreateOrderSchema.parse>[0],
-  pricingConfig?: ParcelPricingConfig
+  pricingConfig?: ParcelPricingConfig,
+  displayName?: string
 ): Promise<QuickzyOrder> {
   const validated = CreateOrderSchema.parse(orderData);
   const cutoffInfo = evaluateSameDayCutoff();
@@ -171,7 +172,7 @@ export async function createOrder(
       {
         timestamp: now,
         action: 'Order Placed',
-        actor: userEmail || userId,
+        actor: displayName || (userEmail ? userEmail.split('@')[0] : userId),
         details: `Initial ${validated.type.toUpperCase()} consignment booked for £${quote.totalGbp.toFixed(2)}`,
         location: `${validated.pickupAddress.line1} (${validated.pickupAddress.postcode})`,
       },

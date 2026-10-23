@@ -46,14 +46,17 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
     sealIntact: false,
   });
 
-  // Filter orders assigned to this driver or active London parcel orders
-  const driverParcels = assignedOrders.filter(
-    (o) =>
-      o.assignedDriverEmail === currentUserEmail ||
-      (o.assignedDriverName && currentUserEmail && o.assignedDriverName.toLowerCase().includes(currentUserEmail.split('@')[0].toLowerCase())) ||
-      o.status === 'out_for_delivery' ||
-      o.status === 'collected'
-  );
+  // Filter orders genuinely assigned to this specific driver
+  // Only show orders where driver email matches OR driver name contains driver's username
+  // Do NOT show all out_for_delivery orders — those belong to whoever was assigned
+  const driverParcels = currentUserEmail
+    ? assignedOrders.filter(
+        (o) =>
+          o.assignedDriverEmail === currentUserEmail ||
+          (o.assignedDriverName &&
+            o.assignedDriverName.toLowerCase().includes(currentUserEmail.split('@')[0].toLowerCase()))
+      )
+    : [];
 
   const handleDriverStatusUpdate = async (orderId: string, nextStatus: OrderStatus) => {
     await updateOrderStatus(orderId, nextStatus, {

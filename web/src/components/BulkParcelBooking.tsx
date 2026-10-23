@@ -75,11 +75,6 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
     }
   };
 
-  const handleLoadSample = () => {
-    setCsvContent(SAMPLE_CSV_TEMPLATE);
-    const result = parseAndValidateCsv(SAMPLE_CSV_TEMPLATE);
-    setValidationResult(result);
-  };
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6">
@@ -158,10 +153,11 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
 
               <button
                 type="button"
-                onClick={handleLoadSample}
-                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-300 font-semibold border border-neutral-700"
+                onClick={handleDownloadTemplate}
+                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-300 font-semibold border border-neutral-700 flex items-center gap-1.5"
               >
-                Load Sample Test Manifest
+                <Download className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Export CSV Template</span>
               </button>
             </div>
           </div>
