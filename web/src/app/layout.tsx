@@ -16,9 +16,12 @@ export const metadata: Metadata = {
   title: "Quickzy | Local High-Street Multi-Merchant Delivery (London Only)",
   description: "Order from London's best independent butchers, bakers, fishmongers, and grocers in a single basket. Fast, cold-chain protected neighborhood delivery.",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/logo.png",
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/logo.png',
   },
 };
 

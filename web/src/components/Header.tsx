@@ -112,26 +112,14 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand Logo */}
           <div
             onClick={() => !currentUser ? undefined : handleTabClick('booking')}
-            className={`flex items-center space-x-3 ${currentUser ? 'cursor-pointer' : 'cursor-default'} select-none`}
+            className={`flex items-center ${currentUser ? 'cursor-pointer' : 'cursor-default'} select-none py-1`}
           >
-            <div className="relative w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-[#3fc060]/25 border border-white/10 flex items-center justify-center bg-neutral-900 animate-float shrink-0">
+            <div className="relative h-11 w-36 sm:w-44 flex items-center justify-start overflow-hidden">
               <img
                 src="/logo.png"
-                alt="Quickzy Logo"
-                className="w-full h-full object-contain p-1"
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = 'none';
-                }}
+                alt="Quickzy"
+                className="h-full w-auto object-contain object-left hover:scale-[1.03] transition-transform duration-200"
               />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xl font-black tracking-tight text-white">Quickzy</span>
-                <span className="text-[10px] font-extrabold bg-[#3fc060]/20 text-[#3fc060] border border-[#3fc060]/30 px-2 py-0.5 rounded-full tracking-wide">
-                  LONDON 🇬🇧
-                </span>
-              </div>
-              <p className="text-[10px] text-neutral-400 hidden sm:block">Same-Day London Rapid Courier</p>
             </div>
           </div>
 

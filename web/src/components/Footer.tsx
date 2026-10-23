@@ -15,14 +15,10 @@ export const Footer: React.FC<FooterProps> = ({ currentUser }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Column 1: Brand & Identity */}
           <div className="space-y-3 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl overflow-hidden bg-neutral-900 border border-white/10 flex items-center justify-center shrink-0 shadow-md shadow-[#3fc060]/20">
-                <img src="/logo.png" alt="Quickzy" className="w-full h-full object-contain p-0.5" />
+            <div className="flex items-center">
+              <div className="h-10 w-36 overflow-hidden flex items-center justify-start">
+                <img src="/logo.png" alt="Quickzy" className="h-full w-auto object-contain object-left" />
               </div>
-              <span className="font-black text-white text-base tracking-tight">Quickzy</span>
-              <span className="text-[10px] font-bold bg-[#3fc060]/20 text-[#3fc060] px-2 py-0.5 rounded-full border border-[#3fc060]/30">
-                LONDON
-              </span>
             </div>
             <p className="text-xs text-neutral-400 leading-relaxed">
               Ultra-local same-day rapid courier platform serving all 32 London Boroughs & City of London for Pharmacy, Food, and Parcel freight.

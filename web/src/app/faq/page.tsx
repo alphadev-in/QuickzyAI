@@ -49,15 +49,11 @@ export default function FAQPage() {
             href="/"
             className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-emerald-400 transition"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Quickzy Main</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
-              Q
+            <ArrowLeft className="w-4 h-4 text-emerald-400 mr-1" />
+            <div className="h-9 w-32 overflow-hidden flex items-center justify-start">
+              <img src="/logo.png" alt="Quickzy" className="h-full w-auto object-contain object-left" />
             </div>
-            <span className="font-bold text-sm text-white">Quickzy London</span>
-          </div>
+          </Link>
         </div>
       </header>
 
