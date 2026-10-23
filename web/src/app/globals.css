@@ -68,13 +68,25 @@ body {
 
 .light-theme .bg-neutral-900,
 .light-theme .bg-neutral-900\/60,
+.light-theme .bg-neutral-900\/80,
+.light-theme .bg-neutral-900\/90,
 .light-theme .bg-neutral-900\/95,
 .light-theme .bg-neutral-900\/98 {
   background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
-.light-theme .bg-neutral-800 {
+/* Light theme FAQ CTA & Gradient Cards */
+.light-theme div[class*="from-emerald-950"],
+.light-theme div[class*="via-neutral-900"] {
+  background: linear-gradient(to right, rgba(63, 192, 96, 0.08), #ffffff, rgba(6, 182, 212, 0.08)) !important;
+  border-color: #dde5ee !important;
+}
+
+.light-theme .bg-neutral-800,
+.light-theme .bg-neutral-800\/40,
+.light-theme .bg-neutral-800\/50,
+.light-theme .bg-neutral-800\/60 {
   background-color: #e2e8f0 !important;
   color: #1e293b !important;
 }

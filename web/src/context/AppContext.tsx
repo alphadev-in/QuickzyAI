@@ -50,10 +50,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('merch_butcher');
   const [activeTrip, setActiveTrip] = useState<DeliveryTrip | null>(null);
 
-  // Initialize a demo trip on load
-  useEffect(() => {
-    generateDemoTrip();
-  }, []);
+  // Demo trip is not loaded automatically - only live assigned orders or explicit dispatch
+  // useEffect(() => { generateDemoTrip(); }, []);
 
   const generateDemoTrip = () => {
     const waypoints: Waypoint[] = [

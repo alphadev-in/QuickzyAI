@@ -110,19 +110,34 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                {activeTrip?.id || 'ACTIVE COURIER FLEET'}
+                {driverParcels.length > 0 ? 'ACTIVE DISPATCH ASSIGNMENT' : 'COURIER STANDBY'}
               </span>
               <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full border border-neutral-700">
-                {activeTrip?.driverVehicle || 'E-Cargo Bike & Rapid Van'}
+                {driverParcels.length > 0 ? `${driverParcels.length} Active Delivery ${driverParcels.length > 1 ? 'Jobs' : 'Job'}` : 'Awaiting Area Allocation'}
               </span>
             </div>
-            <h2 className="text-xl font-extrabold text-white mt-0.5">{activeTrip?.driverName || currentUserEmail || 'London Courier'}</h2>
+            <h2 className="text-xl font-extrabold text-white mt-0.5">{currentUserEmail || 'London Courier'}</h2>
             <p className="text-xs text-neutral-400">
-              Assigned Route: {activeTrip?.waypoints.length || 0} Waypoints ({activeTrip?.totalDistanceKm || 0} km total)
+              {driverParcels.length > 0
+                ? `${driverParcels.length} live assigned order(s) ready for collection / delivery.`
+                : 'No active orders assigned yet. Orders will appear here once allocated by dispatch.'}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Empty State when no assigned orders */}
+      {driverParcels.length === 0 && (!activeTrip || activeTrip.waypoints.length === 0) && (
+        <div className="bg-neutral-900/60 rounded-3xl p-10 border border-neutral-800 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center mx-auto text-neutral-400">
+            <Package className="w-6 h-6 text-emerald-400" />
+          </div>
+          <h3 className="text-sm font-bold text-white">No Assigned Orders Yet</h3>
+          <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+            Your courier console is in live standby mode. When the admin or dispatch assigns London orders by postcode area, they will appear here live with pickup and delivery details.
+          </p>
+        </div>
+      )}
 
       {/* Assigned Real Firestore Parcels */}
       {driverParcels.length > 0 && (

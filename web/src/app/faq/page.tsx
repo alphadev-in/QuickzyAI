@@ -114,7 +114,7 @@ export default function FAQPage() {
         </div>
 
         {/* CTA */}
-        <div className="p-8 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/40 border border-neutral-800 text-center space-y-4">
+        <div className="p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-4 shadow-xl">
           <h2 className="text-2xl font-black text-white">Still have questions?</h2>
           <p className="text-xs text-neutral-400 max-w-md mx-auto">
             Our London dispatcher team is on standby 7 days a week to support high-priority parcel consignments.
@@ -122,7 +122,7 @@ export default function FAQPage() {
           <div className="flex justify-center gap-3">
             <Link
               href="/"
-              className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs flex items-center gap-2"
+              className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20"
             >
               <span>Instant London Booking</span>
               <ArrowRight className="w-4 h-4" />
