@@ -311,7 +311,8 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
           <span className="text-neutral-400 line-through">{formatGbp(creditPence)}</span>
         </div>
       )}
-      <PaymentElement />
+      {/* Card only: wallet buttons are hidden here; other methods are switched off in the Dashboard */}
+      <PaymentElement options={{ wallets: { applePay: 'never', googlePay: 'never' } }} />
       <div className="flex gap-2">
         <button
           type="button"

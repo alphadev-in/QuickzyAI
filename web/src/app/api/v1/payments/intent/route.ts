@@ -7,7 +7,7 @@ import { PromoError, quoteCreditTopUp } from '@/lib/stripeCoupons';
 // - purpose 'order': amountPence is the booking total, charged in full.
 // - purpose 'credit_topup': amountPence is the credit to buy; the coupon (if any) is applied here,
 //   so the card charge is computed on the server, never taken from the browser.
-// Card only: payment_method_types is fixed to ['card'].
+// Card only is set in the Stripe Dashboard, not in code.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -34,12 +34,13 @@ export async function POST(req: NextRequest) {
     const quote = purpose === 'credit_topup' ? await quoteCreditTopUp(amountPence, promotionCode) : null;
     const chargePence = quote ? quote.chargePence : amountPence;
 
-    // payment_method_types restricts the intent to cards. It is in the Stripe API but missing from
-    // this SDK version's typings, hence the explicit intersection type below.
-    const params: Stripe.PaymentIntentCreateParams & { payment_method_types: string[] } = {
+    // Payment methods come from the Stripe Dashboard (Settings > Payment methods). Keep only Card
+    // enabled there for card-only checkout. Redirect-based methods are excluded so the card form
+    // completes inline.
+    const params: Stripe.PaymentIntentCreateParams = {
       amount: chargePence,
       currency: 'gbp',
-      payment_method_types: ['card'],
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       description,
       receipt_email: customerEmail,
       metadata: {
