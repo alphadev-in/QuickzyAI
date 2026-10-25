@@ -68,6 +68,7 @@ interface BasketItem {
   isRestricted: boolean;
   restrictedCategory: string;
   estimatedMiles: number;
+  durationMinutes: number | null;
   basePence: number;
   distancePence: number;
   totalPence: number;
@@ -225,6 +226,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           isRestricted,
           restrictedCategory,
           estimatedMiles: quote.estimatedMiles,
+          durationMinutes: route.durationMinutes ?? null,
           basePence: quote.baseFeePence,
           distancePence: quote.distanceFeePence,
           totalPence: quote.totalPence,
@@ -239,6 +241,12 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   };
 
   const removeJob = (key: string) => setBasket((prev) => prev.filter((j) => j.key !== key));
+
+  // Confetti on successful payment. Loaded on demand to keep the booking bundle small.
+  const celebrate = async () => {
+    const { default: confetti } = await import('canvas-confetti');
+    confetti({ particleCount: 140, spread: 75, origin: { y: 0.6 }, colors: ['#10b981', '#22d3ee', '#fbbf24', '#ffffff'] });
+  };
 
   const basketTotalPence = basket.reduce((sum, j) => sum + j.totalPence, 0);
 
@@ -277,6 +285,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
       }
 
       setPaidOrders(created);
+      celebrate();
       setBasket([]);
       setCheckoutOpen(false);
       onOrdersCreated(created);
@@ -291,8 +300,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   // ---- Success: payment received, driver on the way ----
   if (paidOrders) {
     return (
-      <div className="bg-neutral-900 border border-emerald-500/40 rounded-2xl p-8 text-center max-w-xl mx-auto shadow-2xl">
-        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="bg-neutral-900 border border-emerald-500/40 rounded-2xl p-8 text-center max-w-xl mx-auto shadow-2xl animate-scale-in">
+        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 animate-pop">
           <CheckCircle2 className="w-10 h-10" />
         </div>
         <span className="text-xs uppercase tracking-wider font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
@@ -330,7 +339,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   const cutoffBanner = cutoffInfo.isCutoffExceeded;
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6">
+    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between pb-6 border-b border-neutral-800">
         <div>
@@ -524,15 +533,16 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
             <ShoppingBasket className="w-4 h-4 text-emerald-400" /> Basket ({basket.length})
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-2 stagger">
             {basket.map((job, i) => (
-              <div key={job.key} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-neutral-950/60 border border-neutral-800 text-xs">
+              <div key={job.key} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-neutral-950/60 border border-neutral-800 text-xs hover-lift">
                 <div className="min-w-0">
                   <p className="font-bold text-white truncate">
                     {i + 1}. {job.pickupPostcode} → {job.dropoffPostcode}
                   </p>
                   <p className="text-neutral-400 truncate">
-                    {job.type.toUpperCase()} · {job.estimatedMiles.toFixed(2)} mi · Base {formatGbp(job.basePence)} + Distance {formatGbp(job.distancePence)}
+                    {job.type.toUpperCase()} · {job.estimatedMiles.toFixed(2)} mi
+                    {job.durationMinutes != null && ` · ~${job.durationMinutes} min drive`} · Base {formatGbp(job.basePence)} + Distance {formatGbp(job.distancePence)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

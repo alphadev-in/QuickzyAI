@@ -102,7 +102,7 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-fade-in-up">
       {error && (
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 shrink-0" />

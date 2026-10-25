@@ -1,41 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidLondonPostcode } from '@/types/delivery';
-import { estimateRoadMiles, LatLng } from '@/lib/distance';
+import { estimateRoadMiles } from '@/lib/distance';
+import {
+  getUKDrivingDistance,
+  geocodePostcode,
+  PostcodeNotFoundError,
+} from '@/lib/ukDrivingDistance';
 
-const POSTCODES_IO_BULK = 'https://api.postcodes.io/postcodes';
 const MAX_PAIRS = 500;
-const BULK_LIMIT = 100;
+// Keep concurrent requests low: the OSRM demo server is shared and rate-limited
+const CONCURRENCY = 4;
 
 interface PostcodePair {
   pickupPostcode: string;
   dropoffPostcode: string;
 }
 
-// Geocode a list of postcodes in batches of 100 (postcodes.io bulk limit)
-async function geocodePostcodes(postcodes: string[]): Promise<Map<string, LatLng>> {
-  const coords = new Map<string, LatLng>();
-
-  for (let i = 0; i < postcodes.length; i += BULK_LIMIT) {
-    const batch = postcodes.slice(i, i + BULK_LIMIT);
-    const res = await fetch(POSTCODES_IO_BULK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ postcodes: batch }),
-    });
-    if (!res.ok) throw new Error(`Postcode lookup failed (HTTP ${res.status})`);
-
-    const json = (await res.json()) as { result: { query: string; result: { latitude: number; longitude: number } | null }[] };
-    for (const item of json.result) {
-      if (item.result) {
-        coords.set(item.query.toUpperCase(), { lat: item.result.latitude, lng: item.result.longitude });
-      }
-    }
-  }
-
-  return coords;
+export interface RouteResult {
+  miles: number | null;
+  durationMinutes?: number | null;
+  /** 'osrm' = real driving route, 'estimate' = straight-line fallback when routing was unavailable */
+  source?: 'osrm' | 'estimate';
+  error?: string;
 }
 
-// POST { pairs: [{ pickupPostcode, dropoffPostcode }] } -> { results: [{ miles | null, error? }] }
+const normalise = (pc: unknown) => (typeof pc === 'string' ? pc.trim().toUpperCase() : '');
+
+// Measures one pair: real driving distance first, straight-line estimate if the routing service is down
+async function measurePair(pickup: string, dropoff: string): Promise<RouteResult> {
+  if (!isValidLondonPostcode(pickup)) return { miles: null, error: `Pickup postcode '${pickup}' is not in London` };
+  if (!isValidLondonPostcode(dropoff)) return { miles: null, error: `Dropoff postcode '${dropoff}' is not in London` };
+
+  try {
+    const route = await getUKDrivingDistance(pickup, dropoff);
+    if (!route.routeFound || route.distanceMiles == null) {
+      return { miles: null, error: 'No driving route found between these postcodes' };
+    }
+    return { miles: route.distanceMiles, durationMinutes: route.durationMinutes, source: 'osrm' };
+  } catch (err) {
+    if (err instanceof PostcodeNotFoundError) return { miles: null, error: err.message };
+
+    // Routing unavailable: fall back to a straight-line estimate so bookings can continue
+    try {
+      const [from, to] = await Promise.all([geocodePostcode(pickup), geocodePostcode(dropoff)]);
+      return { miles: estimateRoadMiles(from, to), durationMinutes: null, source: 'estimate' };
+    } catch (fallbackErr: any) {
+      return { miles: null, error: fallbackErr.message || 'Postcode could not be located' };
+    }
+  }
+}
+
+// Runs async work over items with a fixed number of workers, keeping order
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+// POST { pairs: [{ pickupPostcode, dropoffPostcode }] } -> { results: [{ miles, durationMinutes, source, error? }] }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -48,31 +77,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Maximum ${MAX_PAIRS} pairs per request` }, { status: 400 });
     }
 
-    const normalise = (pc: unknown) => (typeof pc === 'string' ? pc.trim().toUpperCase() : '');
-    const allPostcodes = new Set<string>();
-    for (const p of pairs) {
+    // Identical pairs (common in bulk manifests) are measured once
+    const unique = new Map<string, { pickup: string; dropoff: string }>();
+    const keys = pairs.map((p) => {
       const pickup = normalise(p.pickupPostcode);
       const dropoff = normalise(p.dropoffPostcode);
-      if (isValidLondonPostcode(pickup)) allPostcodes.add(pickup);
-      if (isValidLondonPostcode(dropoff)) allPostcodes.add(dropoff);
-    }
-
-    const coords = await geocodePostcodes([...allPostcodes]);
-
-    const results = pairs.map((p) => {
-      const pickup = normalise(p.pickupPostcode);
-      const dropoff = normalise(p.dropoffPostcode);
-
-      if (!isValidLondonPostcode(pickup)) return { miles: null, error: `Pickup postcode '${pickup}' is not in London` };
-      if (!isValidLondonPostcode(dropoff)) return { miles: null, error: `Dropoff postcode '${dropoff}' is not in London` };
-
-      const from = coords.get(pickup);
-      const to = coords.get(dropoff);
-      if (!from || !to) return { miles: null, error: 'Postcode could not be located' };
-
-      return { miles: estimateRoadMiles(from, to), error: undefined };
+      const key = `${pickup}|${dropoff}`;
+      if (!unique.has(key)) unique.set(key, { pickup, dropoff });
+      return key;
     });
 
+    const measured = new Map<string, RouteResult>();
+    const entries = [...unique.entries()];
+    const outcomes = await mapWithConcurrency(entries, CONCURRENCY, ([, p]) => measurePair(p.pickup, p.dropoff));
+    entries.forEach(([key], i) => measured.set(key, outcomes[i]));
+
+    const results = keys.map((key) => measured.get(key) as RouteResult);
     return NextResponse.json({ success: true, results });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Distance lookup failed' }, { status: 500 });

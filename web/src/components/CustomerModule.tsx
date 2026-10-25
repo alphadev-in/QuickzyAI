@@ -256,9 +256,9 @@ export const CustomerModule: React.FC<CustomerModuleProps> = ({ ownerEmail, cust
       {customers.length === 0 && !draft ? (
         <p className="text-xs text-neutral-500 text-center py-8">No customers yet. Add your first customer above.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 stagger">
           {customers.map((c) => (
-            <div key={c.id} className="bg-neutral-950/60 border border-neutral-800 rounded-xl p-4">
+            <div key={c.id} className="bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 hover-lift">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-white">{c.name}</p>

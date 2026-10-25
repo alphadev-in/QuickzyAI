@@ -7,6 +7,8 @@ export interface PostcodePairInput {
 
 export interface RouteMilesResult {
   miles: number | null;
+  durationMinutes?: number | null;
+  source?: 'osrm' | 'estimate';
   error?: string;
 }
 

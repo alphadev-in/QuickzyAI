@@ -17,12 +17,16 @@ import {
   ChevronDown,
   Package,
   Users,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenAuth: () => void;
   onOpenAddressBook: () => void;
-  currentUser: { email: string; role: string; name: string } | null;
+  currentUser: { email: string; role: string; name: string; companyName?: string } | null;
+  /** Shown in the profile menu. Omit to hide the balance row. */
+  creditBalancePence?: number;
+  onSignOut?: () => void;
   activeTab: 'storefront' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'merchant' | 'driver' | 'dispatch';
   setActiveTab: (tab: 'storefront' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'merchant' | 'driver' | 'dispatch') => void;
 }
@@ -31,9 +35,19 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuth,
   onOpenAddressBook,
   currentUser,
+  creditBalancePence,
+  onSignOut,
   activeTab,
   setActiveTab,
 }) => {
+  const initials = (name: string) =>
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join('') || 'Q';
+
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -182,13 +196,31 @@ export const Header: React.FC<HeaderProps> = ({
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border shadow-xl overflow-hidden animate-fade-slide z-50"
                     style={{ background: 'var(--surface, #18181b)', borderColor: 'var(--card-border)' }}>
-                    <div className="px-3.5 py-3 border-b" style={{ borderColor: 'var(--card-border)' }}>
-                      <p className="text-xs font-bold text-neutral-200 truncate">{currentUser.name}</p>
-                      <p className="text-[11px] text-neutral-400 font-mono truncate mt-0.5">{currentUser.email}</p>
-                      <span className="inline-block mt-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                        {currentUser.role}
-                      </span>
+                    <div className="px-3.5 py-3 border-b flex items-center gap-3" style={{ borderColor: 'var(--card-border)' }}>
+                      <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 font-black text-xs flex items-center justify-center shrink-0">
+                        {initials(currentUser.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-neutral-200 truncate">{currentUser.name}</p>
+                        <p className="text-[11px] text-neutral-400 font-mono truncate">{currentUser.email}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                            {currentUser.role}
+                          </span>
+                          {currentUser.companyName && (
+                            <span className="text-[10px] text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full bg-cyan-500/10 truncate max-w-[120px]">
+                              {currentUser.companyName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    {creditBalancePence !== undefined && (
+                      <div className="px-3.5 py-2.5 border-b flex items-center justify-between text-[11px]" style={{ borderColor: 'var(--card-border)' }}>
+                        <span className="text-neutral-400">Credit balance</span>
+                        <span className="font-black text-cyan-400">£{(creditBalancePence / 100).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="p-2 space-y-1">
                       <button
                         onClick={() => { onOpenAuth(); setProfileOpen(false); }}
@@ -204,6 +236,16 @@ export const Header: React.FC<HeaderProps> = ({
                         >
                           <span className="text-emerald-400">📍</span>
                           Address Book
+                        </button>
+                      )}
+                      {onSignOut && (
+                        <button
+                          onClick={() => { setProfileOpen(false); onSignOut(); }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:bg-red-500/10 transition flex items-center gap-2 border-t mt-1 pt-2.5"
+                          style={{ borderColor: 'var(--card-border)' }}
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign out
                         </button>
                       )}
                     </div>
@@ -285,6 +327,16 @@ export const Header: React.FC<HeaderProps> = ({
                   Profile
                 </button>
               </div>
+
+              {onSignOut && (
+                <button
+                  onClick={() => { setMobileMenuOpen(false); onSignOut(); }}
+                  className="w-full py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-bold flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              )}
 
               {isAdmin && (
                 <Link

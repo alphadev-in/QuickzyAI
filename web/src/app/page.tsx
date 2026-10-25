@@ -211,6 +211,8 @@ function MainApplicationContent() {
           setIsAddressBookOpen(true);
         }}
         currentUser={currentUser}
+        creditBalancePence={currentUser ? creditBalancePence : undefined}
+        onSignOut={currentUser ? handleSignOutUser : undefined}
         activeTab={activeTab === 'index' || activeTab === 'bulk' ? 'booking' : (activeTab as any)}
         setActiveTab={(tab) => {
           if (tab === 'booking' || tab === 'bulk' || tab === 'tracking') {
@@ -281,7 +283,7 @@ function MainApplicationContent() {
               </div>
 
               {/* Feature grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left stagger">
                 <div className="p-5 rounded-2xl glass-panel space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                     <Pill className="w-5 h-5" />
@@ -326,7 +328,7 @@ function MainApplicationContent() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-left stagger">
               {[
                 { step: '01', title: 'Authenticate', sub: 'Sign In or Register', body: 'Quickzy Cloud Authentication stores all your London addresses and orders securely.' },
                 { step: '02', title: 'Configure', sub: 'Choose Stream & Route', body: 'Select Pharmacy, Food, or Parcel. Enter London postcodes with instant geocoding checks.' },
@@ -346,7 +348,7 @@ function MainApplicationContent() {
 
       {/* Authenticated Dashboard */}
       {activeTab !== 'index' && (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+        <main key={activeTab} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6 animate-fade-in-up">
           {/* Status bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl glass-panel text-xs">
             <div className="flex items-center gap-2">
