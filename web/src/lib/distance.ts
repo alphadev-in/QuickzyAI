@@ -24,3 +24,11 @@ export function haversineMiles(a: LatLng, b: LatLng): number {
 export function estimateRoadMiles(a: LatLng, b: LatLng): number {
   return Math.round(haversineMiles(a, b) * ROAD_DETOUR_FACTOR * 100) / 100;
 }
+
+// Buffer added on top of every road distance (driving route or estimate) to cover
+// small detours, parking and the start/end of the journey. Applied once, at the API boundary.
+export const ROUTE_BUFFER_FACTOR = 1.1;
+
+export function withRouteBuffer(miles: number): number {
+  return Math.round(miles * ROUTE_BUFFER_FACTOR * 100) / 100;
+}

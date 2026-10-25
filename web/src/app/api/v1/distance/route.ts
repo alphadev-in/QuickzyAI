@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidLondonPostcode } from '@/types/delivery';
-import { estimateRoadMiles } from '@/lib/distance';
+import { estimateRoadMiles, withRouteBuffer } from '@/lib/distance';
 import {
   getUKDrivingDistance,
   geocodePostcode,
@@ -36,14 +36,14 @@ async function measurePair(pickup: string, dropoff: string): Promise<RouteResult
     if (!route.routeFound || route.distanceMiles == null) {
       return { miles: null, error: 'No driving route found between these postcodes' };
     }
-    return { miles: route.distanceMiles, durationMinutes: route.durationMinutes, source: 'osrm' };
+    return { miles: withRouteBuffer(route.distanceMiles), durationMinutes: route.durationMinutes, source: 'osrm' };
   } catch (err) {
     if (err instanceof PostcodeNotFoundError) return { miles: null, error: err.message };
 
     // Routing unavailable: fall back to a straight-line estimate so bookings can continue
     try {
       const [from, to] = await Promise.all([geocodePostcode(pickup), geocodePostcode(dropoff)]);
-      return { miles: estimateRoadMiles(from, to), durationMinutes: null, source: 'estimate' };
+      return { miles: withRouteBuffer(estimateRoadMiles(from, to)), durationMinutes: null, source: 'estimate' };
     } catch (fallbackErr: any) {
       return { miles: null, error: fallbackErr.message || 'Postcode could not be located' };
     }

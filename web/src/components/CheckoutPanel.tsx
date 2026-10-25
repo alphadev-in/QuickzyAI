@@ -1,27 +1,38 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { PaymentMethod } from '@/types/delivery';
 import { spendCredit } from '@/lib/creditService';
-import { CreditCard, Wallet, Loader2, ShieldAlert, Lock } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
+import { CreditCard, Wallet, Loader2, ShieldAlert, Lock, Ticket } from 'lucide-react';
 
 export interface PaidResult {
+  /** Card is the only method for bookings and top-ups. 'credit' only when allowCredit is enabled. */
   method: PaymentMethod;
   reference: string;
+  /** Amount actually charged to the card, after any coupon */
   amountPence: number;
+  /** Credit granted (top-ups). Equals amountPence for bookings. */
+  creditPence: number;
 }
 
 interface CheckoutPanelProps {
+  /** Booking total, or the credit amount for a top-up */
   amountPence: number;
   description: string;
   customerEmail: string;
   /** 'order' pays for bookings; 'credit_topup' buys credit for the account balance. */
   purpose: 'order' | 'credit_topup';
-  /** Current credit balance. When omitted or allowCredit is false, only card payment is offered. */
-  creditBalancePence?: number;
+  /** Top-ups only: Stripe promotion code, recalculated on the server */
+  promotionCode?: string;
+  /**
+   * Pay bookings from the credit balance. Off: card is the only payment method.
+   * Kept so it can be switched back on without rewriting the flow.
+   */
   allowCredit?: boolean;
+  creditBalancePence?: number;
   disabled?: boolean;
   payLabel?: string;
   onPaid: (result: PaidResult) => Promise<void> | void;
@@ -38,26 +49,72 @@ function getStripePromise() {
 
 const formatGbp = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
+// Stripe Elements styled to the app palette: emerald accent, dark or light surfaces
+function buildAppearance(isLight: boolean): StripeElementsOptions['appearance'] {
+  const surface = isLight ? '#ffffff' : '#111113';
+  const text = isLight ? '#0f172a' : '#ededed';
+  const muted = isLight ? '#475569' : '#a1a1aa';
+  const border = isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.10)';
+
+  return {
+    theme: isLight ? 'stripe' : 'night',
+    variables: {
+      colorPrimary: '#10b981',
+      colorBackground: surface,
+      colorText: text,
+      colorTextSecondary: muted,
+      colorTextPlaceholder: muted,
+      colorDanger: '#f87171',
+      colorSuccess: '#10b981',
+      fontFamily: 'Geist, ui-sans-serif, system-ui, sans-serif',
+      fontSizeBase: '14px',
+      borderRadius: '12px',
+      spacingUnit: '4px',
+    },
+    rules: {
+      '.Input': { border: `1px solid ${border}`, boxShadow: 'none', backgroundColor: surface },
+      '.Input:focus': { border: '1px solid #10b981', boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.25)' },
+      '.Input--invalid': { border: '1px solid #f87171' },
+      '.Tab': { border: `1px solid ${border}` },
+      '.Tab:hover': { borderColor: '#10b981' },
+      '.Tab--selected': { borderColor: '#10b981', boxShadow: '0 0 0 1px #10b981' },
+      '.Label': { color: muted },
+      '.Error': { color: '#f87171' },
+    },
+  };
+}
+
 export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
   amountPence,
   description,
   customerEmail,
   purpose,
+  promotionCode,
+  allowCredit = false,
   creditBalancePence,
-  allowCredit = true,
   disabled,
   payLabel,
   onPaid,
 }) => {
+  const { theme } = useTheme();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [chargePence, setChargePence] = useState(amountPence);
+  const [creditPence, setCreditPence] = useState(amountPence);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const canUseCredit = allowCredit && purpose === 'order' && creditBalancePence !== undefined;
   const hasEnoughCredit = canUseCredit && (creditBalancePence as number) >= amountPence;
   const stripe = useMemo(() => getStripePromise(), []);
+  const isLight = theme === 'light';
 
+  const elementsOptions = useMemo<StripeElementsOptions | undefined>(
+    () => (clientSecret ? { clientSecret, appearance: buildAppearance(isLight) } : undefined),
+    [clientSecret, isLight]
+  );
+
+  // Asks the server for a PaymentIntent. For top-ups the server applies the coupon and returns the charge.
   const startCardPayment = async () => {
     setError('');
     setBusy(true);
@@ -65,12 +122,20 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
       const res = await fetch('/api/v1/payments/intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountPence, customerEmail, purpose, description }),
+        body: JSON.stringify({
+          amountPence,
+          customerEmail,
+          purpose,
+          description,
+          promotionCode: purpose === 'credit_topup' ? promotionCode || undefined : undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Could not start card payment');
       setClientSecret(json.clientSecret);
       setPaymentIntentId(json.paymentIntentId);
+      setChargePence(json.chargePence);
+      setCreditPence(amountPence);
     } catch (err: any) {
       setError(err.message || 'Could not start card payment');
     } finally {
@@ -78,13 +143,14 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
     }
   };
 
+  // Only reachable when allowCredit is turned on
   const payWithCredit = async () => {
     setError('');
     setBusy(true);
     try {
       const reference = `CREDIT-${Date.now().toString(36).toUpperCase()}`;
       await spendCredit(customerEmail, amountPence, reference);
-      await onPaid({ method: 'credit', reference, amountPence });
+      await onPaid({ method: 'credit', reference, amountPence, creditPence: amountPence });
     } catch (err: any) {
       setError(err.message || 'Credit payment failed');
     } finally {
@@ -117,7 +183,7 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
               type="button"
               disabled={busy || disabled || !hasEnoughCredit}
               onClick={payWithCredit}
-              className="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition"
+              className="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition active:scale-[0.98]"
             >
               <Wallet className="w-4 h-4" />
               <span>
@@ -131,17 +197,19 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
             type="button"
             disabled={busy || disabled}
             onClick={startCardPayment}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition"
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
             <span>{payLabel || `Pay ${formatGbp(amountPence)} by card`}</span>
           </button>
         </div>
       ) : (
-        stripe && (
-          <Elements stripe={stripe} options={{ clientSecret, appearance: { theme: 'night' } }}>
+        stripe &&
+        elementsOptions && (
+          <Elements key={`${clientSecret}-${theme}`} stripe={stripe} options={elementsOptions}>
             <CardPaymentForm
-              amountPence={amountPence}
+              chargePence={chargePence}
+              creditPence={creditPence}
               customerEmail={customerEmail}
               paymentIntentId={paymentIntentId as string}
               onCancel={() => {
@@ -151,7 +219,7 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
               onPaid={async (reference) => {
                 setBusy(true);
                 try {
-                  await onPaid({ method: 'stripe', reference, amountPence });
+                  await onPaid({ method: 'stripe', reference, amountPence: chargePence, creditPence });
                 } finally {
                   setBusy(false);
                 }
@@ -170,7 +238,8 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
 };
 
 interface CardPaymentFormProps {
-  amountPence: number;
+  chargePence: number;
+  creditPence: number;
   customerEmail: string;
   paymentIntentId: string;
   onCancel: () => void;
@@ -179,7 +248,8 @@ interface CardPaymentFormProps {
 }
 
 const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
-  amountPence,
+  chargePence,
+  creditPence,
   customerEmail,
   paymentIntentId,
   onCancel,
@@ -189,6 +259,7 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
+  const discounted = creditPence !== chargePence;
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +288,7 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
     const res = await fetch('/api/v1/payments/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentIntentId, customerEmail, expectedAmountPence: amountPence }),
+      body: JSON.stringify({ paymentIntentId, customerEmail, expectedAmountPence: chargePence }),
     });
     const json = await res.json();
     if (!res.ok || !json.paid) {
@@ -231,24 +302,32 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleConfirm} className="space-y-3 p-4 rounded-xl bg-neutral-950 border border-neutral-800">
+    <form onSubmit={handleConfirm} className="space-y-3 p-4 rounded-xl bg-neutral-950 border border-neutral-800 animate-scale-in" style={{ background: 'var(--surface, #111113)', borderColor: 'var(--card-border)' }}>
+      {discounted && (
+        <div className="flex items-center justify-between text-xs px-1">
+          <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <Ticket className="w-3.5 h-3.5" /> Coupon applied
+          </span>
+          <span className="text-neutral-400 line-through">{formatGbp(creditPence)}</span>
+        </div>
+      )}
       <PaymentElement />
       <div className="flex gap-2">
         <button
           type="button"
           onClick={onCancel}
           disabled={submitting}
-          className="px-4 py-2.5 rounded-xl bg-neutral-800 text-xs font-semibold text-neutral-300 hover:bg-neutral-700"
+          className="px-4 py-2.5 rounded-xl bg-neutral-800 text-xs font-semibold text-neutral-300 hover:bg-neutral-700 transition"
         >
           Back
         </button>
         <button
           type="submit"
           disabled={!stripe || submitting}
-          className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40"
+          className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition active:scale-[0.98]"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          <span>{submitting ? 'Processing...' : `Confirm & Pay ${formatGbp(amountPence)}`}</span>
+          <span>{submitting ? 'Processing...' : `Confirm & Pay ${formatGbp(chargePence)}`}</span>
         </button>
       </div>
     </form>

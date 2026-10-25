@@ -28,10 +28,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // For credit top-ups the credit granted is the face value recorded at intent creation,
+    // not the discounted card charge
+    const creditPence = intent.metadata?.creditPence ? Number(intent.metadata.creditPence) : intent.amount_received;
+
     return NextResponse.json({
       paid: true,
       paymentIntentId: intent.id,
       amountPence: intent.amount_received,
+      creditPence,
       purpose: intent.metadata?.purpose || 'order',
     });
   } catch (error: any) {
