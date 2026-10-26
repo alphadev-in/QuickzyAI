@@ -297,8 +297,8 @@ export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promi
     return liveOrders;
   } catch (err) {
     console.error('Firestore fetchAllOrders error:', err);
-    // Admin must see the real state, so no local fallback for admin
-    if (safeUserEmail === 'prajapatikaranc@gmail.com') return [];
+    // Admin must see the real state, so no local fallback for admin: the error is shown instead
+    if (safeUserEmail === 'prajapatikaranc@gmail.com') throw err;
   }
 
   // Customers and drivers fall back to this browser's copy only when Firestore cannot be read

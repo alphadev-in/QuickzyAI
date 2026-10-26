@@ -42,23 +42,24 @@ service cloud.firestore {
 
     // Orders Collection
     match /orders/{orderId} {
-      // Users can only read their own orders; admin and assigned drivers can also read
+      // resource.data.get(key, default) means a missing field (e.g. no driver yet) cannot make the
+      // whole query fail. Admin is checked first.
       allow read: if isAuthenticated() && (
         isAdmin() ||
-        request.auth.token.email == resource.data.userId ||
-        request.auth.token.email == resource.data.userEmail ||
-        request.auth.uid == resource.data.userId ||
-        request.auth.token.email == resource.data.assignedDriverEmail ||
-        request.auth.uid == resource.data.assignedDriverId
+        request.auth.token.email == resource.data.get('userEmail', '') ||
+        request.auth.token.email == resource.data.get('userId', '') ||
+        request.auth.uid == resource.data.get('userId', '') ||
+        request.auth.token.email == resource.data.get('assignedDriverEmail', '') ||
+        request.auth.uid == resource.data.get('assignedDriverId', '')
       );
       // Authenticated users can create orders
       allow create: if isAuthenticated();
       // Only admin, owner, or assigned driver can update order status
       allow update: if isAuthenticated() && (
         isAdmin() ||
-        request.auth.token.email == resource.data.userId ||
-        request.auth.token.email == resource.data.assignedDriverEmail ||
-        request.auth.uid == resource.data.assignedDriverId
+        request.auth.token.email == resource.data.get('userId', '') ||
+        request.auth.token.email == resource.data.get('assignedDriverEmail', '') ||
+        request.auth.uid == resource.data.get('assignedDriverId', '')
       );
       allow delete: if isAdmin();
     }

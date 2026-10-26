@@ -116,6 +116,8 @@ export default function AdminDashboardPage() {
 
   // Orders and Dashboard state
   const [orders, setOrders] = useState<QuickzyOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
@@ -181,8 +183,16 @@ export default function AdminDashboardPage() {
   }, []);
 
   const loadOrders = async () => {
-    const list = await fetchAllOrders(ADMIN_AUTHORIZED_EMAIL, 'admin');
-    setOrders(list);
+    setOrdersLoading(true);
+    setOrdersError('');
+    try {
+      const list = await fetchAllOrders(ADMIN_AUTHORIZED_EMAIL, 'admin');
+      setOrders(list);
+    } catch (err: any) {
+      setOrdersError(err?.message || 'Could not load orders from Firestore');
+    } finally {
+      setOrdersLoading(false);
+    }
     const pcfg = await fetchPricingConfig();
     setPricingConfig(pcfg);
   };
@@ -1371,8 +1381,23 @@ export default function AdminDashboardPage() {
                       <option value="out_for_delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>
                     </select>
+                    <button
+                      type="button"
+                      onClick={loadOrders}
+                      disabled={ordersLoading}
+                      className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-bold text-neutral-200 flex items-center gap-1.5 disabled:opacity-40"
+                    >
+                      {ordersLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      Refresh
+                    </button>
                   </div>
                 </div>
+
+                {ordersError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span>Orders could not be loaded: {ordersError}. Check that the latest Firestore rules are deployed.</span>
+                  </div>
+                )}
 
                 {/* Real Orders Table from Firestore */}
                 <div className="overflow-x-auto border border-neutral-800 rounded-2xl bg-neutral-900/40">
