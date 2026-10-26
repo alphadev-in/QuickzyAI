@@ -335,6 +335,7 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
                       description={`Quickzy bulk manifest x${pricedRows.length}`}
                       customerEmail={clientEmail}
                       purpose="order"
+                      allowCredit
                       creditBalancePence={creditBalancePence}
                       payLabel={`Pay ${formatGbp(totalPence)} for ${pricedRows.length} orders`}
                       onPaid={handlePaid}

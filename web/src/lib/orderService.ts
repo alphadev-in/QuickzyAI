@@ -2,12 +2,14 @@ import {
   collection,
   doc,
   setDoc,
+  addDoc,
   getDoc,
   getDocs,
   query,
   where,
   orderBy,
   updateDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -21,6 +23,8 @@ import {
   ParcelPricingConfig,
   DEFAULT_PRICING_CONFIG,
   PaymentMethod,
+  DriverProfile,
+  DriverNotification,
 } from '@/types/delivery';
 
 export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
@@ -253,20 +257,27 @@ export async function getOrderById(orderId: string): Promise<QuickzyOrder | null
 export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promise<QuickzyOrder[]> {
   const safeUserEmail = userEmail?.toLowerCase() || '';
   try {
-    let q;
+    let snaps;
     if (role === 'admin' || safeUserEmail === 'prajapatikaranc@gmail.com') {
       // Admin sees all real user orders from Firestore
-      q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      snaps = [await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')))];
+    } else if (role === 'driver' && safeUserEmail) {
+      // Drivers see orders assigned to them, plus any they booked themselves
+      snaps = await Promise.all([
+        getDocs(query(collection(db, 'orders'), where('assignedDriverEmail', '==', safeUserEmail))),
+        getDocs(query(collection(db, 'orders'), where('userEmail', '==', safeUserEmail))),
+      ]);
     } else if (safeUserEmail) {
       // Regular user sees only their own orders
-      q = query(collection(db, 'orders'), where('userEmail', '==', safeUserEmail));
+      snaps = [await getDocs(query(collection(db, 'orders'), where('userEmail', '==', safeUserEmail)))];
     } else {
       return [];
     }
 
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const liveOrders = snap.docs.map((d) => d.data() as QuickzyOrder);
+    const byId = new Map<string, QuickzyOrder>();
+    snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, d.data() as QuickzyOrder)));
+    const liveOrders = Array.from(byId.values());
+    if (liveOrders.length > 0) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('quickzy_orders', JSON.stringify(liveOrders));
       }
@@ -286,6 +297,7 @@ export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promi
 export interface UpdateOrderMeta {
   driverName?: string;
   driverEmail?: string;
+  driverId?: string;
   proofOfDeliveryPhoto?: string;
   handoverNotes?: string;
   location?: string;
@@ -335,6 +347,7 @@ export async function updateOrderStatus(
 
   if (meta.driverName) patchData.assignedDriverName = meta.driverName;
   if (meta.driverEmail) patchData.assignedDriverEmail = meta.driverEmail;
+  if (meta.driverId) patchData.assignedDriverId = meta.driverId;
   if (meta.proofOfDeliveryPhoto) patchData.proofOfDeliveryPhoto = meta.proofOfDeliveryPhoto;
   if (meta.handoverNotes) patchData.handoverNotes = meta.handoverNotes;
   if (newStatus === 'delivered') patchData.deliveredAt = now;
@@ -372,6 +385,66 @@ export async function updateOrderStatus(
     return true;
   }
   return false;
+}
+
+// Admin dispatch: assigns the order to a driver, then notifies that driver in-app.
+// Throws if the notification cannot be written, so the admin sees that the driver was not told.
+export async function assignOrderToDriver(
+  order: Pick<QuickzyOrder, 'id'>,
+  driver: DriverProfile,
+  details?: string
+): Promise<void> {
+  const driverLabel = driver.name || driver.email;
+  await updateOrderStatus(order.id, 'out_for_delivery', {
+    driverName: driverLabel,
+    driverEmail: driver.email,
+    driverId: driver.uid,
+    details: details || `Admin assigned courier ${driverLabel} (${driver.email}) for rapid London dispatch.`,
+  });
+  await createDriverNotification(driver.email, {
+    orderId: order.id,
+    title: `New delivery ${order.id}`,
+    message: `You have been assigned order ${order.id}. Open your driver dashboard to collect it.`,
+  });
+}
+
+export async function createDriverNotification(
+  recipientEmail: string,
+  content: Pick<DriverNotification, 'orderId' | 'title' | 'message'>
+): Promise<void> {
+  await addDoc(collection(db, 'notifications'), {
+    recipientEmail: recipientEmail.toLowerCase(),
+    ...content,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+// Live feed for the driver's signed-in email. Sorted newest first on the client to avoid a composite index.
+export function subscribeToDriverNotifications(
+  email: string,
+  onChange: (items: DriverNotification[]) => void
+): () => void {
+  const q = query(collection(db, 'notifications'), where('recipientEmail', '==', email.toLowerCase()));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<DriverNotification, 'id'>) }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      onChange(items);
+    },
+    (err) => console.warn('Driver notifications listener failed:', err)
+  );
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+}
+
+// Drivers toggle this on their own users/{uid} document. Admin only dispatches to available drivers.
+export async function setDriverAvailability(uid: string, isAvailable: boolean): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { isAvailable });
 }
 
 // Local Storage Cache

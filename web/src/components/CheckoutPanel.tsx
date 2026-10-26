@@ -220,6 +220,8 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
                 setBusy(true);
                 try {
                   await onPaid({ method: 'stripe', reference, amountPence: chargePence, creditPence });
+                } catch (err: any) {
+                  setError(err?.message || 'Payment was taken but could not be completed. Contact support with the payment reference.');
                 } finally {
                   setBusy(false);
                 }
@@ -267,38 +269,49 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
     setSubmitting(true);
     onError('');
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-    });
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+      });
 
-    if (error) {
-      onError(error.message || 'Card payment was declined');
+      if (error) {
+        onError(error.message || 'Card payment was declined');
+        setSubmitting(false);
+        return;
+      }
+
+      if (paymentIntent?.status !== 'succeeded') {
+        onError(`Payment status: ${paymentIntent?.status || 'unknown'}. Please try again.`);
+        setSubmitting(false);
+        return;
+      }
+
+      // Server-side check that the payment really succeeded for this customer and amount
+      const res = await fetch('/api/v1/payments/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIntentId, customerEmail, expectedAmountPence: chargePence }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.paid) {
+        onError(json.error || 'Payment could not be verified');
+        setSubmitting(false);
+        return;
+      }
+    } catch (err: any) {
+      onError(err?.message || 'Payment could not be completed. Please try again.');
       setSubmitting(false);
       return;
     }
 
-    if (paymentIntent?.status !== 'succeeded') {
-      onError(`Payment status: ${paymentIntent?.status || 'unknown'}. Please try again.`);
+    try {
+      await onPaid(paymentIntentId);
+    } catch (err: any) {
+      onError(err?.message || 'Payment was taken but could not be completed. Contact support with the payment reference.');
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    // Server-side check that the payment really succeeded for this customer and amount
-    const res = await fetch('/api/v1/payments/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentIntentId, customerEmail, expectedAmountPence: chargePence }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.paid) {
-      onError(json.error || 'Payment could not be verified');
-      setSubmitting(false);
-      return;
-    }
-
-    await onPaid(paymentIntentId);
-    setSubmitting(false);
   };
 
   return (

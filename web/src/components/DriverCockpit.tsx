@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useApp } from '@/context/AppContext';
 import {
   Bike,
@@ -18,9 +21,17 @@ import {
   Camera,
   UploadCloud,
   FileCheck,
+  Bell,
+  BellRing,
+  Power,
 } from 'lucide-react';
-import { QuickzyOrder, OrderStatus } from '@/types/delivery';
-import { updateOrderStatus } from '@/lib/orderService';
+import { QuickzyOrder, OrderStatus, DriverNotification } from '@/types/delivery';
+import {
+  updateOrderStatus,
+  subscribeToDriverNotifications,
+  markNotificationRead,
+  setDriverAvailability,
+} from '@/lib/orderService';
 
 interface DriverCockpitProps {
   currentUserEmail?: string;
@@ -45,6 +56,51 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
     icePackActive: false,
     sealIntact: false,
   });
+  const [notifications, setNotifications] = useState<DriverNotification[]>([]);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState('');
+
+  // Live in-app notifications sent by dispatch when this driver is assigned an order
+  useEffect(() => {
+    if (!currentUserEmail) return;
+    return subscribeToDriverNotifications(currentUserEmail, setNotifications);
+  }, [currentUserEmail]);
+
+  // Availability lives on the driver's user profile, so read it once the Firebase user is known
+  useEffect(() => {
+    let unsubProfile: (() => void) | undefined;
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      unsubProfile?.();
+      if (!user) return;
+      unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+        setIsAvailable(snap.data()?.isAvailable !== false);
+      });
+    });
+    return () => {
+      unsubAuth();
+      unsubProfile?.();
+    };
+  }, []);
+
+  const toggleAvailability = async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setAvailabilityError('Your sign-in has expired. Sign in again to change your availability.');
+      return;
+    }
+    setAvailabilityError('');
+    try {
+      await setDriverAvailability(uid, !isAvailable);
+    } catch (err: any) {
+      setAvailabilityError(err?.message || 'Could not update availability');
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const openNotification = async (n: DriverNotification) => {
+    if (!n.read) await markNotificationRead(n.id);
+  };
 
   // Filter orders genuinely assigned to this specific driver
   // Only show orders where driver email matches OR driver name contains driver's username
@@ -126,6 +182,56 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                 : 'No active orders assigned yet. Orders will appear here once allocated by dispatch.'}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Availability and dispatch notifications */}
+      <div className="bg-neutral-900 rounded-3xl p-6 border border-neutral-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Availability</p>
+            <p className="text-sm text-white">
+              {isAvailable ? 'You are available for dispatch.' : 'You are off duty. Dispatch will not assign you new orders.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAvailability}
+            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition ${
+              isAvailable
+                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
+                : 'bg-emerald-500 hover:bg-emerald-400 text-neutral-950'
+            }`}
+          >
+            <Power className="w-3.5 h-3.5" />
+            {isAvailable ? 'Go off duty' : 'Go available'}
+          </button>
+        </div>
+        {availabilityError && <p className="text-xs text-red-400">{availabilityError}</p>}
+
+        <div className="pt-4 border-t border-neutral-800 space-y-2">
+          <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+            {unreadCount > 0 ? <BellRing className="w-3.5 h-3.5 text-amber-400" /> : <Bell className="w-3.5 h-3.5" />}
+            Notifications {unreadCount > 0 && <span className="text-amber-400">({unreadCount} new)</span>}
+          </p>
+          {notifications.length === 0 ? (
+            <p className="text-xs text-neutral-500">No notifications yet. You will be alerted here when an order is assigned to you.</p>
+          ) : (
+            notifications.slice(0, 5).map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => openNotification(n)}
+                className={`w-full text-left p-3 rounded-xl border text-xs transition ${
+                  n.read ? 'bg-neutral-950 border-neutral-800 text-neutral-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-100'
+                }`}
+              >
+                <span className="font-bold block">{n.title}</span>
+                <span className="block mt-0.5">{n.message}</span>
+                <span className="block mt-1 text-[10px] text-neutral-500">{new Date(n.createdAt).toLocaleString('en-GB')}</span>
+              </button>
+            ))
+          )}
         </div>
       </div>
 

@@ -34,9 +34,11 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
+  Wallet,
 } from 'lucide-react';
 import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG } from '@/types/delivery';
-import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig } from '@/lib/orderService';
+import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig, assignOrderToDriver } from '@/lib/orderService';
+import { adminGrantCredit, getCreditBalancePence } from '@/lib/creditService';
 import { fetchRouteMiles } from '@/lib/routeMiles';
 
 const ADMIN_AUTHORIZED_EMAIL = 'prajapatikaranc@gmail.com';
@@ -46,6 +48,7 @@ interface UserRecord {
   email: string;
   name?: string;
   role: 'customer' | 'client' | 'driver' | 'admin';
+  isAvailable?: boolean;
   companyName?: string;
   deliveryStream?: string;
   createdAt?: string;
@@ -63,7 +66,53 @@ export default function AdminDashboardPage() {
   const [loginError, setLoginError] = useState('');
 
   // Navigation tabs: 'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing'
-  const [activeTab, setActiveTab] = useState<'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing' | 'credit'>('orders');
+
+  // Manual credit grants for testing bookings
+  const [creditEmail, setCreditEmail] = useState('');
+  const [creditPounds, setCreditPounds] = useState('');
+  const [creditNote, setCreditNote] = useState('');
+  const [creditBusy, setCreditBusy] = useState(false);
+  const [creditMessage, setCreditMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleManualCredit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreditMessage(null);
+    const pounds = Number(creditPounds);
+    const pence = Math.round(pounds * 100);
+    if (!Number.isFinite(pounds) || pence <= 0 || pence > 1_000_000) {
+      setCreditMessage({ ok: false, text: 'Enter an amount between £0.01 and £10,000.' });
+      return;
+    }
+    setCreditBusy(true);
+    try {
+      const newBalance = await adminGrantCredit(creditEmail, pence, creditNote);
+      setCreditMessage({
+        ok: true,
+        text: `Added £${pounds.toFixed(2)} to ${creditEmail.trim().toLowerCase()}. New balance £${(newBalance / 100).toFixed(2)}.`,
+      });
+      setCreditPounds('');
+      setCreditNote('');
+    } catch (err: any) {
+      setCreditMessage({ ok: false, text: err?.message || 'Could not add credit' });
+    } finally {
+      setCreditBusy(false);
+    }
+  };
+
+  const handleCheckBalance = async () => {
+    setCreditMessage(null);
+    if (!creditEmail.includes('@')) {
+      setCreditMessage({ ok: false, text: 'Enter an account email first.' });
+      return;
+    }
+    try {
+      const bal = await getCreditBalancePence(creditEmail);
+      setCreditMessage({ ok: true, text: `Current balance for ${creditEmail.trim().toLowerCase()}: £${(bal / 100).toFixed(2)}.` });
+    } catch (err: any) {
+      setCreditMessage({ ok: false, text: err?.message || 'Could not read balance' });
+    }
+  };
 
   // Orders and Dashboard state
   const [orders, setOrders] = useState<QuickzyOrder[]>([]);
@@ -85,12 +134,11 @@ export default function AdminDashboardPage() {
 
   // Driver Assignment state
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
-  const [driverNameInput, setDriverNameInput] = useState('');
-  const [driverEmailInput, setDriverEmailInput] = useState('');
+  const [assignDriverUid, setAssignDriverUid] = useState('');
+  const [dispatchError, setDispatchError] = useState('');
 
   // Bulk assignment by location
-  const [bulkDriverName, setBulkDriverName] = useState('');
-  const [bulkDriverEmail, setBulkDriverEmail] = useState('');
+  const [bulkDriverUid, setBulkDriverUid] = useState('');
   const [assigningArea, setAssigningArea] = useState<string | null>(null);
   const [bulkAssigningLoading, setBulkAssigningLoading] = useState(false);
 
@@ -166,37 +214,41 @@ export default function AdminDashboardPage() {
   };
 
   const handleAssignDriver = async (orderId: string) => {
-    if (!driverNameInput.trim()) return;
-    await updateOrderStatus(orderId, 'out_for_delivery', {
-      driverName: driverNameInput.trim(),
-      driverEmail: driverEmailInput.trim() || undefined,
-      details: `Admin assigned courier ${driverNameInput.trim()}${driverEmailInput.trim() ? ` (${driverEmailInput.trim()})` : ''} for rapid London dispatch.`,
-    });
+    const driver = toDriverProfile(assignDriverUid);
+    if (!driver) return;
+    setDispatchError('');
+    try {
+      await assignOrderToDriver({ id: orderId }, driver);
+    } catch (err: any) {
+      setDispatchError(err?.message || 'Could not assign driver');
+      return;
+    }
     setAssigningOrderId(null);
-    setDriverNameInput('');
-    setDriverEmailInput('');
+    setAssignDriverUid('');
     loadOrders();
   };
 
   // Bulk Assign All Orders in an Area to a Driver
   const handleBulkAssignLocation = async (area: string, orderIds: string[]) => {
-    if (!bulkDriverName.trim() || orderIds.length === 0) return;
+    const driver = toDriverProfile(bulkDriverUid);
+    if (!driver || orderIds.length === 0) return;
     setBulkAssigningLoading(true);
+    setDispatchError('');
 
     try {
       for (const oid of orderIds) {
-        await updateOrderStatus(oid, 'out_for_delivery', {
-          driverName: bulkDriverName.trim(),
-          driverEmail: bulkDriverEmail.trim() || undefined,
-          details: `Admin bulk-assigned area [${area}] (${orderIds.length} parcels) to courier ${bulkDriverName.trim()}.`,
-        });
+        await assignOrderToDriver(
+          { id: oid },
+          driver,
+          `Admin bulk-assigned area [${area}] (${orderIds.length} parcels) to courier ${driver.name || driver.email}.`
+        );
       }
       setAssigningArea(null);
-      setBulkDriverName('');
-      setBulkDriverEmail('');
+      setBulkDriverUid('');
       await loadOrders();
-    } catch (err) {
-      console.error('Bulk assign failed:', err);
+    } catch (err: any) {
+      setDispatchError(err?.message || 'Bulk assignment stopped part way. Check the orders list before retrying.');
+      await loadOrders();
     } finally {
       setBulkAssigningLoading(false);
     }
@@ -364,6 +416,15 @@ export default function AdminDashboardPage() {
   const driversList = useMemo(() => {
     return registeredUsers.filter((u) => u.role === 'driver');
   }, [registeredUsers]);
+
+  // Only drivers who have not switched themselves off can be dispatched to
+  const availableDrivers = useMemo(() => driversList.filter((d) => d.isAvailable !== false), [driversList]);
+
+  const toDriverProfile = (uid: string) => {
+    const driver = availableDrivers.find((d) => d.uid === uid);
+    return driver ? { uid: driver.uid, email: driver.email, name: driver.name, isAvailable: driver.isAvailable } : null;
+  };
+
 
   const businessesList = useMemo(() => {
     return registeredUsers.filter((u) => u.role === 'client');
@@ -537,8 +598,8 @@ export default function AdminDashboardPage() {
                 <p className="text-xl font-black text-emerald-400 mt-1">{registeredUsers.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
-                <p className="text-[10px] uppercase font-bold text-neutral-400">Active Drivers</p>
-                <p className="text-xl font-black text-amber-400 mt-1">{driversList.length}</p>
+                <p className="text-[10px] uppercase font-bold text-neutral-400">Available Drivers</p>
+                <p className="text-xl font-black text-amber-400 mt-1">{availableDrivers.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 col-span-2 sm:col-span-1">
                 <p className="text-[10px] uppercase font-bold text-neutral-400">Total Revenue</p>
@@ -621,6 +682,18 @@ export default function AdminDashboardPage() {
               </button>
 
               <button
+                onClick={() => setActiveTab('credit')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'credit'
+                    ? 'bg-emerald-500 text-neutral-950 shadow-md'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Add Credit</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('pricing')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
                   activeTab === 'pricing'
@@ -634,6 +707,72 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* TAB: PRICING CONFIG */}
+            {activeTab === 'credit' && (
+              <div className="max-w-xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5">
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-400" /> Add credit manually
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Adds credit to any customer or company account without taking a payment. Use it to test bookings.
+                    Every grant is written to the credit ledger with your admin email.
+                  </p>
+                </div>
+
+                <form onSubmit={handleManualCredit} className="space-y-3">
+                  <input
+                    type="email"
+                    required
+                    placeholder="Account email (customer or company)"
+                    value={creditEmail}
+                    onChange={(e) => setCreditEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-xs text-white"
+                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">£</span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        required
+                        placeholder="Amount"
+                        value={creditPounds}
+                        onChange={(e) => setCreditPounds(e.target.value)}
+                        className="w-full pl-7 pr-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-xs text-white"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCheckBalance}
+                      className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-bold text-neutral-200"
+                    >
+                      Check balance
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Note (e.g. Test credit for UAT)"
+                    value={creditNote}
+                    onChange={(e) => setCreditNote(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-xs text-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={creditBusy}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    {creditBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Add credit
+                  </button>
+                </form>
+
+                {creditMessage && (
+                  <p className={`text-xs ${creditMessage.ok ? 'text-emerald-400' : 'text-red-400'}`}>{creditMessage.text}</p>
+                )}
+              </div>
+            )}
+
             {activeTab === 'pricing' && (
               <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-neutral-800 gap-2">
@@ -858,8 +997,12 @@ export default function AdminDashboardPage() {
                         <div key={d.uid || i} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-white text-sm">{d.name}</span>
-                            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-500/30 uppercase">
-                              Active Driver
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${
+                              d.isAvailable === false
+                                ? 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            }`}>
+                              {d.isAvailable === false ? 'Off duty' : 'Available'}
                             </span>
                           </div>
                           <p className="text-xs font-mono text-neutral-400">{d.email}</p>
@@ -953,22 +1096,20 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                      <input
-                        type="text"
-                        placeholder="Driver Name (e.g. Liam Bike Fleet)"
-                        value={bulkDriverName}
-                        onChange={(e) => setBulkDriverName(e.target.value)}
-                        className="px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
-                      />
-                      <input
-                        type="email"
-                        placeholder="Driver Email (e.g. driver@quickzy.co.uk)"
-                        value={bulkDriverEmail}
-                        onChange={(e) => setBulkDriverEmail(e.target.value)}
-                        className="px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
-                      />
+                      <select
+                        value={bulkDriverUid}
+                        onChange={(e) => setBulkDriverUid(e.target.value)}
+                        className="px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white min-w-[220px]"
+                      >
+                        <option value="">{availableDrivers.length ? 'Select an available driver' : 'No drivers available'}</option>
+                        {availableDrivers.map((d) => (
+                          <option key={d.uid} value={d.uid}>
+                            {d.name || d.email} ({d.email})
+                          </option>
+                        ))}
+                      </select>
                       <button
-                        disabled={bulkAssigningLoading || !bulkDriverName.trim()}
+                        disabled={bulkAssigningLoading || !bulkDriverUid}
                         onClick={() => handleBulkAssignLocation(assigningArea, (ordersByLocation[assigningArea] || []).map(o => o.id))}
                         className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-black rounded-xl text-xs flex items-center gap-2 disabled:opacity-40 transition"
                       >
@@ -1019,7 +1160,8 @@ export default function AdminDashboardPage() {
                                 <button
                                   onClick={() => {
                                     setAssigningArea(area);
-                                    setBulkDriverName('');
+                                    setBulkDriverUid('');
+                                    setDispatchError('');
                                   }}
                                   className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-neutral-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md"
                                 >
@@ -1339,26 +1481,26 @@ export default function AdminDashboardPage() {
                     <div className="p-4 bg-neutral-950 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in">
                       <div className="text-xs">
                         <span className="font-bold text-white">Assign Driver to Order #{assigningOrderId}:</span>
-                        <p className="text-[11px] text-neutral-400">Select or type driver name & area dispatch unit.</p>
+                        <p className="text-[11px] text-neutral-400">The driver is notified in their dashboard once assigned.</p>
+                        {dispatchError && <p className="text-[11px] text-red-400 mt-1">{dispatchError}</p>}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                        <input
-                          type="text"
-                          placeholder="Driver Name (e.g. Liam Bike #3)"
-                          value={driverNameInput}
-                          onChange={(e) => setDriverNameInput(e.target.value)}
-                          className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
-                        />
-                        <input
-                          type="email"
-                          placeholder="Driver Email (e.g. driver@quickzy.co.uk)"
-                          value={driverEmailInput}
-                          onChange={(e) => setDriverEmailInput(e.target.value)}
-                          className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white"
-                        />
+                        <select
+                        value={assignDriverUid}
+                        onChange={(e) => setAssignDriverUid(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-white min-w-[220px]"
+                      >
+                        <option value="">{availableDrivers.length ? 'Select an available driver' : 'No drivers available'}</option>
+                        {availableDrivers.map((d) => (
+                          <option key={d.uid} value={d.uid}>
+                            {d.name || d.email} ({d.email})
+                          </option>
+                        ))}
+                      </select>
                         <button
+                          disabled={!assignDriverUid}
                           onClick={() => handleAssignDriver(assigningOrderId)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs"
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs disabled:opacity-40"
                         >
                           Assign & Dispatch
                         </button>

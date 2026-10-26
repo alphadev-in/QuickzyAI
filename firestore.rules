@@ -70,17 +70,40 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (request.auth.token.email == resource.data.ownerEmail || isAdmin());
     }
 
-    // Prepaid credit balance (keyed by customer email)
-    // TODO before production: move balance writes to a server-side Stripe webhook (Admin SDK)
+    // Prepaid credit balance (keyed by customer email, lowercase)
+    // TODO before production: move balance writes to a server-side Stripe webhook (Admin SDK).
+    // Until then the browser writes the balance after a verified Stripe payment, so customers can
+    // only write their own balance document.
     match /customer_credit/{email} {
-      allow read: if isAuthenticated() && (request.auth.token.email == email || isAdmin());
-      allow write: if isAuthenticated() && (request.auth.token.email == email || isAdmin());
+      allow read: if isAuthenticated() && (request.auth.token.email.lower() == email || isAdmin());
+      allow create, update: if isAuthenticated() && (request.auth.token.email.lower() == email || isAdmin());
     }
 
-    // Credit audit trail
+    // Credit audit trail. Ledger ids for top-ups are the Stripe PaymentIntent id, so a retried
+    // top-up can check whether it was already credited. resource == null covers that check.
     match /credit_ledger/{entryId} {
-      allow read: if isAuthenticated() && (request.auth.token.email == resource.data.ownerEmail || isAdmin());
-      allow create: if isAuthenticated() && request.auth.token.email == request.resource.data.ownerEmail;
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.token.email.lower() == resource.data.ownerEmail ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.token.email.lower() == request.resource.data.ownerEmail || isAdmin()
+      );
+    }
+
+    // In-app notifications. Admin creates them on driver assignment; the recipient reads them
+    // and can only mark them read.
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.token.email.lower() == resource.data.recipientEmail ||
+        isAdmin()
+      );
+      allow create: if isAdmin();
+      allow update: if isAuthenticated()
+        && request.auth.token.email.lower() == resource.data.recipientEmail
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
     }
 
     // Bulk Imports Collection

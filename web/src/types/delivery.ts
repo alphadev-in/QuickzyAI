@@ -40,6 +40,25 @@ export interface AddressItem {
 }
 
 // Unified Order Model
+// A driver as listed for dispatch. Stored on users/{uid}; isAvailable defaults to available when unset.
+export interface DriverProfile {
+  uid: string;
+  email: string;
+  name?: string;
+  isAvailable?: boolean;
+}
+
+// In-app notification for a driver, stored in notifications/{id}
+export interface DriverNotification {
+  id: string;
+  recipientEmail: string;
+  title: string;
+  message: string;
+  orderId: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface QuickzyOrder {
   id: string;
   userId: string;

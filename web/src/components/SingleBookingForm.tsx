@@ -581,6 +581,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
                   description={`Quickzy London delivery x${basket.length}`}
                   customerEmail={userEmail}
                   purpose="order"
+                  allowCredit
                   creditBalancePence={creditBalancePence}
                   onPaid={handlePaid}
                 />
