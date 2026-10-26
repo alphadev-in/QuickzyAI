@@ -25,6 +25,8 @@ import {
   PaymentMethod,
   DriverProfile,
   DriverNotification,
+  AGE_RESTRICTION_MIN_AGE,
+  ageOnDate,
 } from '@/types/delivery';
 
 export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
@@ -134,6 +136,16 @@ export async function createOrder(
   }
   const cutoffInfo = evaluateSameDayCutoff();
 
+  // Age-restricted parcels: the recipient must already be old enough when the booking is made
+  const ageRestricted = !!validated.parcel?.ageRestricted;
+  const recipientDob = validated.parcel?.recipientDob;
+  if (ageRestricted) {
+    if (!recipientDob) throw new Error('Enter the recipient date of birth for an age-restricted item.');
+    if (!(ageOnDate(recipientDob) >= AGE_RESTRICTION_MIN_AGE)) {
+      throw new Error(`Age-restricted items can only be sent to people aged ${AGE_RESTRICTION_MIN_AGE} or over.`);
+    }
+  }
+
   const quote = calculateDeliveryPrice(
     { type: validated.type, estimatedMiles: validated.estimatedMiles },
     pricingConfig || DEFAULT_PRICING_CONFIG
@@ -170,8 +182,11 @@ export async function createOrder(
           contentsDescription: validated.parcel.contentsDescription,
           isRestricted: validated.parcel.isRestricted,
           restrictedCategory: validated.parcel.restrictedCategory,
+          ageRestricted,
+          recipientDob: ageRestricted ? recipientDob : undefined,
         }
       : undefined,
+    ageCheck: ageRestricted && recipientDob ? { minAge: AGE_RESTRICTION_MIN_AGE, customerDob: recipientDob } : undefined,
     specialNotes: validated.specialNotes,
     pricePence: quote.totalPence,
     priceGbp: quote.totalGbp,
@@ -189,11 +204,9 @@ export async function createOrder(
     ],
   };
 
-  try {
-    await setDoc(doc(db, 'orders', orderId), newOrder);
-  } catch (err) {
-    console.error('Firestore save order error:', err);
-  }
+  // Not caught: if the order cannot be saved, the caller must show it. A local-only copy would look
+  // booked to the customer while admin and drivers never see it.
+  await setDoc(doc(db, 'orders', orderId), newOrder);
 
   saveOrderLocal(newOrder);
   return newOrder;
@@ -274,19 +287,21 @@ export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promi
       return [];
     }
 
+    // Firestore is the source of truth. An empty result is a real empty result, not a reason to show stale local data.
     const byId = new Map<string, QuickzyOrder>();
     snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, d.data() as QuickzyOrder)));
     const liveOrders = Array.from(byId.values());
-    if (liveOrders.length > 0) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('quickzy_orders', JSON.stringify(liveOrders));
-      }
-      return liveOrders;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('quickzy_orders', JSON.stringify(liveOrders));
     }
+    return liveOrders;
   } catch (err) {
-    console.warn('Firestore fetchAllOrders error:', err);
+    console.error('Firestore fetchAllOrders error:', err);
+    // Admin must see the real state, so no local fallback for admin
+    if (safeUserEmail === 'prajapatikaranc@gmail.com') return [];
   }
 
+  // Customers and drivers fall back to this browser's copy only when Firestore cannot be read
   const local = getLocalOrders();
   if (role !== 'admin' && safeUserEmail) {
     return local.filter((o) => (o.userEmail && o.userEmail.toLowerCase() === safeUserEmail) || o.userId === safeUserEmail);
@@ -295,6 +310,8 @@ export async function fetchAllOrders(userEmail?: string, role?: UserRole): Promi
 }
 
 export interface UpdateOrderMeta {
+  /** Extra order fields to save with the update, e.g. ageCheck or deliveryProof */
+  extra?: Record<string, unknown>;
   driverName?: string;
   driverEmail?: string;
   driverId?: string;
@@ -352,16 +369,13 @@ export async function updateOrderStatus(
   if (meta.handoverNotes) patchData.handoverNotes = meta.handoverNotes;
   if (newStatus === 'delivered') patchData.deliveredAt = now;
   if (notification) patchData.notificationAlert = notification;
+  if (meta.extra) Object.assign(patchData, meta.extra);
 
-  try {
-    const orderRef = doc(db, 'orders', orderId);
-    const existingSnap = await getDoc(orderRef);
-    const existingActivities = existingSnap.exists() ? (existingSnap.data().activities || []) : [];
-    patchData.activities = [...existingActivities, newActivity];
-    await updateDoc(orderRef, patchData);
-  } catch (err) {
-    console.warn('Firestore updateDoc failed:', err);
-  }
+  const orderRef = doc(db, 'orders', orderId);
+  const existingSnap = await getDoc(orderRef);
+  const existingActivities = existingSnap.exists() ? (existingSnap.data().activities || []) : [];
+  patchData.activities = [...existingActivities, newActivity];
+  await updateDoc(orderRef, patchData);
 
   const orders = getLocalOrders();
   const idx = orders.findIndex((o) => o.id === orderId);
@@ -445,6 +459,15 @@ export async function markNotificationRead(notificationId: string): Promise<void
 // Drivers toggle this on their own users/{uid} document. Admin only dispatches to available drivers.
 export async function setDriverAvailability(uid: string, isAvailable: boolean): Promise<void> {
   await updateDoc(doc(db, 'users', uid), { isAvailable });
+}
+
+// Driver live location, written onto each active order so the customer and admin can read it
+export async function updateDriverLocation(
+  orderIds: string[],
+  location: { lat: number; lng: number; accuracy?: number }
+): Promise<void> {
+  const stamped = { ...location, updatedAt: new Date().toISOString() };
+  await Promise.all(orderIds.map((id) => updateDoc(doc(db, 'orders', id), { driverLocation: stamped })));
 }
 
 // Local Storage Cache

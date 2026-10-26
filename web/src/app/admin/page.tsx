@@ -1469,6 +1469,16 @@ export default function AdminDashboardPage() {
                                   Driver: {order.assignedDriverName}
                                 </span>
                               )}
+                              {order.driverLocation && (
+                                <a
+                                  href={`https://www.google.com/maps?q=${order.driverLocation.lat},${order.driverLocation.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[9px] text-cyan-400 hover:underline block font-mono"
+                                >
+                                  Live location {new Date(order.driverLocation.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                </a>
+                              )}
                             </div>
                           </td>
                         </tr>

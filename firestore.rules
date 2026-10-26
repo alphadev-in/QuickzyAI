@@ -44,12 +44,12 @@ service cloud.firestore {
     match /orders/{orderId} {
       // Users can only read their own orders; admin and assigned drivers can also read
       allow read: if isAuthenticated() && (
+        isAdmin() ||
         request.auth.token.email == resource.data.userId ||
         request.auth.token.email == resource.data.userEmail ||
         request.auth.uid == resource.data.userId ||
         request.auth.token.email == resource.data.assignedDriverEmail ||
-        request.auth.uid == resource.data.assignedDriverId ||
-        isAdmin()
+        request.auth.uid == resource.data.assignedDriverId
       );
       // Authenticated users can create orders
       allow create: if isAuthenticated();

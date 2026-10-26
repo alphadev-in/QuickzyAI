@@ -14,6 +14,8 @@ import {
   evaluateSameDayCutoff,
   isValidLondonPostcode,
   SAME_DAY_MAX_MILES,
+  AGE_RESTRICTION_MIN_AGE,
+  ageOnDate,
 } from '@/types/delivery';
 import { createOrder, fetchPricingConfig } from '@/lib/orderService';
 import { fetchRouteMiles } from '@/lib/routeMiles';
@@ -67,6 +69,8 @@ interface BasketItem {
   contentsDescription: string;
   isRestricted: boolean;
   restrictedCategory: string;
+  ageRestricted: boolean;
+  recipientDob?: string;
   estimatedMiles: number;
   durationMinutes: number | null;
   basePence: number;
@@ -131,6 +135,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   const [heightCm, setHeightCm] = useState(15);
   const [contentsDescription, setContentsDescription] = useState('Urgent London Package');
   const [isRestricted, setIsRestricted] = useState(false);
+  const [ageRestricted, setAgeRestricted] = useState(false);
+  const [recipientDob, setRecipientDob] = useState('');
   const [restrictedCategory, setRestrictedCategory] = useState('Medicines & Therapeutics');
   const [timeSlot, setTimeSlot] = useState<TimeSlotType>('same_day_asap');
 
@@ -173,6 +179,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
     setCustomerId('');
     setContentsDescription(bookingType === 'pharmacy' ? '' : 'Urgent London Package');
     setIsRestricted(false);
+    setAgeRestricted(false);
+    setRecipientDob('');
   };
 
   // Calculate road miles for this job, then price it on base + per-mile only
@@ -206,6 +214,13 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
         return;
       }
 
+      if (ageRestricted && (!recipientDob || !(ageOnDate(recipientDob) >= AGE_RESTRICTION_MIN_AGE))) {
+        setErrorMessage(
+          `Age-restricted items need the recipient's date of birth, and the recipient must be ${AGE_RESTRICTION_MIN_AGE} or over.`
+        );
+        return;
+      }
+
       const quote = calculateDeliveryPrice({ type: bookingType, estimatedMiles: route.miles }, pricingConfig);
 
       setBasket((prev) => [
@@ -225,6 +240,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           contentsDescription,
           isRestricted,
           restrictedCategory,
+          ageRestricted,
+          recipientDob: ageRestricted ? recipientDob : undefined,
           estimatedMiles: quote.estimatedMiles,
           durationMinutes: route.durationMinutes ?? null,
           basePence: quote.baseFeePence,
@@ -275,6 +292,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
               contentsDescription: job.contentsDescription,
               isRestricted: job.isRestricted,
               restrictedCategory: job.isRestricted ? job.restrictedCategory : undefined,
+              ageRestricted: job.ageRestricted,
+              recipientDob: job.ageRestricted ? job.recipientDob : undefined,
             },
           },
           pricingConfig,
@@ -486,6 +505,29 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
             </div>
 
             <RestrictedToggle checked={isRestricted} onChange={setIsRestricted} label="Parcel contains regulated or restricted items (Medicines, Lithium Batteries, Fragile Glass)" category={restrictedCategory} onCategory={setRestrictedCategory} />
+
+            <div className="pt-2 border-t border-neutral-800/80 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={ageRestricted} onChange={(e) => setAgeRestricted(e.target.checked)} className="rounded bg-neutral-900 border-neutral-700 text-emerald-500 focus:ring-0 w-4 h-4" />
+                <span className="text-xs font-semibold text-neutral-200">Age-restricted item (alcohol, tobacco or similar)</span>
+              </label>
+              {ageRestricted && (
+                <div className="pl-6 space-y-1">
+                  <label className="text-[11px] text-neutral-400 block">Recipient date of birth *</label>
+                  <input
+                    type="date"
+                    required
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={recipientDob}
+                    onChange={(e) => setRecipientDob(e.target.value)}
+                    className="w-full sm:w-1/2 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-neutral-500">
+                    The driver checks the recipient is {AGE_RESTRICTION_MIN_AGE} or over and that the date of birth matches at handover.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-4">

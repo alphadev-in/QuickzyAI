@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { AGE_RESTRICTION_MIN_AGE, ageOnDate } from '@/types/delivery';
+import { compressImageToDataUrl, getCurrentPosition } from '@/lib/media';
 import { auth, db } from '@/lib/firebase';
 import { useApp } from '@/context/AppContext';
 import {
@@ -31,6 +33,7 @@ import {
   subscribeToDriverNotifications,
   markNotificationRead,
   setDriverAvailability,
+  updateDriverLocation,
 } from '@/lib/orderService';
 
 interface DriverCockpitProps {
@@ -51,6 +54,10 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   const [proofPhotoData, setProofPhotoData] = useState<string>('');
   const [handoverNotes, setHandoverNotes] = useState<string>('Left with recipient at doorstep.');
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+  const [proofDob, setProofDob] = useState('');
+  const [proofError, setProofError] = useState('');
+  const [sharingLocation, setSharingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
   const [coldChecklist, setColdChecklist] = useState({
     thermalBagReady: false,
     icePackActive: false,
@@ -125,21 +132,103 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   const handleCompleteDeliveryWithProof = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deliveryProofModalOrder) return;
+    const order = deliveryProofModalOrder;
+    setProofError('');
+
+    if (!proofPhotoData) {
+      setProofError('Take or upload a photo of the parcel at the delivery location before confirming.');
+      return;
+    }
+
+    // Age-restricted: the DOB the driver reads from ID must be old enough and match the customer's
+    let ageCheckUpdate: Record<string, unknown> | undefined;
+    if (order.ageCheck) {
+      const driverAge = proofDob ? ageOnDate(proofDob) : NaN;
+      if (!proofDob || Number.isNaN(driverAge)) {
+        setProofError('Enter the recipient date of birth from their ID.');
+        return;
+      }
+      if (driverAge < order.ageCheck.minAge) {
+        setProofError(`Recipient is under ${order.ageCheck.minAge}. Do not hand over this item.`);
+        return;
+      }
+      if (proofDob !== order.ageCheck.customerDob) {
+        setProofError("The date of birth does not match the one the customer gave at booking. Do not hand over this item.");
+        return;
+      }
+      ageCheckUpdate = {
+        ageCheck: {
+          ...order.ageCheck,
+          verifiedAt: new Date().toISOString(),
+          verifiedByEmail: currentUserEmail || null,
+          verifiedDob: proofDob,
+          verifiedAge: driverAge,
+        },
+      };
+    }
+
     setIsSubmittingProof(true);
+    try {
+      const position = await getCurrentPosition();
+      await updateOrderStatus(order.id, 'delivered', {
+        driverName: currentUserEmail ? currentUserEmail.split('@')[0] : 'Quickzy Courier',
+        driverEmail: currentUserEmail,
+        proofOfDeliveryPhoto: proofPhotoData,
+        handoverNotes: handoverNotes.trim() || 'Package handed over and verified.',
+        location: `${order.dropoffAddress?.line1 || 'Destination'}, ${order.dropoffAddress?.postcode || ''}`,
+        extra: {
+          deliveryProof: { ...(position ? { lat: position.lat, lng: position.lng } : {}), capturedAt: new Date().toISOString() },
+          ...ageCheckUpdate,
+        },
+      });
+    } catch (err: any) {
+      setProofError(err?.message || 'Delivery could not be saved. Check your connection and try again.');
+      return;
+    } finally {
+      setIsSubmittingProof(false);
+    }
 
-    await updateOrderStatus(deliveryProofModalOrder.id, 'delivered', {
-      driverName: currentUserEmail ? currentUserEmail.split('@')[0] : 'Quickzy Courier',
-      driverEmail: currentUserEmail,
-      proofOfDeliveryPhoto: proofPhotoData || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60',
-      handoverNotes: handoverNotes.trim() || 'Package handed over and verified.',
-      location: `${deliveryProofModalOrder.dropoffAddress?.line1 || 'Destination'}, ${deliveryProofModalOrder.dropoffAddress?.postcode || ''}`,
-    });
-
-    setIsSubmittingProof(false);
     setDeliveryProofModalOrder(null);
     setProofPhotoData('');
+    setProofDob('');
     if (onRefreshOrders) onRefreshOrders();
   };
+
+  // Live location: while sharing, the position is written onto the driver's active orders (throttled)
+  const activeOrderIds = driverParcels
+    .filter((o) => o.status === 'collected' || o.status === 'out_for_delivery')
+    .map((o) => o.id);
+  const activeOrderKey = activeOrderIds.join(',');
+
+  useEffect(() => {
+    if (!sharingLocation) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationError('This device cannot share location.');
+      setSharingLocation(false);
+      return;
+    }
+    let lastWrite = 0;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - lastWrite < 15000) return;
+        lastWrite = now;
+        const ids = activeOrderKey ? activeOrderKey.split(',') : [];
+        if (ids.length === 0) return;
+        updateDriverLocation(ids, {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        }).catch((err) => setLocationError(err?.message || 'Could not share location'));
+      },
+      (err) => {
+        setLocationError(err.message || 'Location permission was denied');
+        setSharingLocation(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [sharingLocation, activeOrderKey]);
 
   const currentWp = activeTrip ? activeTrip.waypoints[activeTrip.currentWaypointIndex] : null;
   const isTripCompleted = activeTrip ? activeTrip.status === 'completed' : false;
@@ -208,6 +297,32 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
           </button>
         </div>
         {availabilityError && <p className="text-xs text-red-400">{availabilityError}</p>}
+
+        <div className="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Live location</p>
+            <p className="text-sm text-white">
+              {sharingLocation
+                ? activeOrderIds.length > 0
+                  ? `Sharing with ${activeOrderIds.length} active order(s). Updates about every 15 seconds.`
+                  : 'Sharing is on. It will update when you have an active order.'
+                : 'Off. Turn this on while you are out so the customer can see your progress.'}
+            </p>
+            {locationError && <p className="text-xs text-red-400 mt-1">{locationError}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setLocationError('');
+              setSharingLocation((v) => !v);
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+              sharingLocation ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200' : 'bg-cyan-500 hover:bg-cyan-400 text-neutral-950'
+            }`}
+          >
+            {sharingLocation ? 'Stop sharing' : 'Share my location'}
+          </button>
+        </div>
 
         <div className="pt-4 border-t border-neutral-800 space-y-2">
           <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
@@ -596,7 +711,7 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
                       <UploadCloud className="w-5 h-5" />
                     </div>
-                    <p className="text-xs text-neutral-300 font-medium">Capture or upload photo of delivery location</p>
+                    <p className="text-xs text-neutral-300 font-medium">Photo of the parcel at the delivery location (required)</p>
                     <div className="flex justify-center gap-2 pt-1">
                       <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-[11px]">
                         Choose File
@@ -604,31 +719,41 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => setProofPhotoData(ev.target?.result as string);
-                              reader.readAsDataURL(file);
+                            if (!file) return;
+                            setProofError('');
+                            try {
+                              setProofPhotoData(await compressImageToDataUrl(file));
+                            } catch (err: any) {
+                              setProofError(err?.message || 'Could not read that photo');
                             }
                           }}
                         />
                       </label>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProofPhotoData(
-                            'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60'
-                          )
-                        }
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 font-bold text-[11px] border border-emerald-500/30"
-                      >
-                        Use Sample Photo
-                      </button>
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Age check for age-restricted items */}
+              {deliveryProofModalOrder.ageCheck && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <p className="text-xs font-bold text-amber-300">
+                    Age-restricted item. Check the recipient&apos;s ID and enter their date of birth. They must be {AGE_RESTRICTION_MIN_AGE} or over.
+                  </p>
+                  <input
+                    type="date"
+                    required
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={proofDob}
+                    onChange={(e) => setProofDob(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              )}
+
+              {proofError && <p className="text-xs text-red-400">{proofError}</p>}
 
               {/* Handover notes */}
               <div>

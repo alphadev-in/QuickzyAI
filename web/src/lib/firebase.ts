@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -13,5 +13,15 @@ const firebaseConfig = {
 
 // Initialize Firebase client safely on Next.js
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app);
+// Optional fields are often undefined (e.g. bulkImportId, restrictedCategory). By default Firestore rejects
+// the whole write when it sees undefined, so orders silently never reached the database. Ignore them instead.
+// initializeFirestore throws if it already ran (hot reload), so fall back to the existing instance.
+function createFirestore() {
+  try {
+    return initializeFirestore(app, { ignoreUndefinedProperties: true });
+  } catch {
+    return getFirestore(app);
+  }
+}
+export const db = createFirestore();
 export const auth = getAuth(app);

@@ -399,6 +399,11 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                   <span className="text-emerald-400 font-bold">
                     {selectedOrder.assignedDriverName || 'London Route Batcher Fleet'}
                   </span>
+                  {selectedOrder.driverLocation && (
+                    <span className="block text-neutral-500 mt-0.5">
+                      Location shared {new Date(selectedOrder.driverLocation.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
 
                 {/* Status progression triggers */}

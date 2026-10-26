@@ -24,6 +24,30 @@ export interface ParcelDetails {
   contentsDescription: string;
   isRestricted: boolean; // medicines, lithium batteries, dangerous items
   restrictedCategory?: string;
+  ageRestricted?: boolean; // alcohol, tobacco, etc: recipient must meet AGE_RESTRICTION_MIN_AGE
+  recipientDob?: string; // YYYY-MM-DD, given by the customer at booking
+}
+
+export const AGE_RESTRICTION_MIN_AGE = 25;
+
+// Whole years between a YYYY-MM-DD date of birth and a given day
+export function ageOnDate(dob: string, on: Date = new Date()): number {
+  const [y, m, d] = dob.split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  let age = on.getFullYear() - y;
+  const birthdayPassed = on.getMonth() + 1 > m || (on.getMonth() + 1 === m && on.getDate() >= d);
+  if (!birthdayPassed) age -= 1;
+  return age;
+}
+
+// Driver's check at delivery: DOB must match the customer's and the person must be old enough
+export interface AgeCheck {
+  minAge: number;
+  customerDob: string;
+  verifiedAt?: string;
+  verifiedByEmail?: string;
+  verifiedDob?: string;
+  verifiedAge?: number;
 }
 
 // Address Model
@@ -72,6 +96,12 @@ export interface QuickzyOrder {
   scheduledFor?: string; // ISO date string
   isSameDayCutoffExceeded: boolean;
   parcel?: ParcelDetails;
+  /** Present when the parcel is age-restricted; delivery needs a passing driver check */
+  ageCheck?: AgeCheck;
+  /** Latest position shared by the driver while out for delivery */
+  driverLocation?: { lat: number; lng: number; accuracy?: number; updatedAt: string };
+  /** Proof captured at handover */
+  deliveryProof?: { lat?: number; lng?: number; capturedAt: string };
   specialNotes?: string;
   pricePence: number;
   priceGbp: number;
@@ -229,6 +259,8 @@ export const ParcelSchema = z.object({
   contentsDescription: z.string().min(2, 'Description of contents is required'),
   isRestricted: z.boolean().default(false),
   restrictedCategory: z.string().optional(),
+  ageRestricted: z.boolean().default(false),
+  recipientDob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Recipient date of birth is required').optional(),
 });
 
 export const CreateOrderSchema = z.object({

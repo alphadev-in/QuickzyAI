@@ -82,32 +82,31 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const items = navItems();
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl px-2 py-1.5 transition-colors duration-200"
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] transition-colors duration-200"
       style={{
         background: 'var(--header-bg, rgba(9, 9, 11, 0.95))',
         borderColor: 'var(--header-border, rgba(255, 255, 255, 0.08))',
       }}
     >
-      <nav className="flex items-center justify-around max-w-md mx-auto">
+      <nav aria-label="Main navigation" className="grid max-w-md mx-auto gap-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
+              type="button"
               onClick={item.action}
-              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer select-none ${
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex flex-col items-center justify-center gap-1 min-h-[52px] rounded-xl transition active:scale-95 cursor-pointer select-none ${
                 isActive
-                  ? 'text-[#3fc060] font-bold scale-105'
+                  ? 'text-emerald-400 bg-emerald-500/10 font-bold'
                   : 'text-neutral-400 hover:text-neutral-200 font-medium'
               }`}
             >
-              <div className="relative">
-                {item.icon}
-                {isActive && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#3fc060] rounded-full shadow-sm shadow-[#3fc060]" />
-                )}
-              </div>
-              <span className="text-[10px] mt-1 tracking-tight leading-none">{item.label}</span>
+              {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-emerald-400" />}
+              {item.icon}
+              <span className="text-[10px] tracking-tight leading-none">{item.label}</span>
             </button>
           );
         })}
