@@ -235,7 +235,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
         setErrorMessage(limitError);
         return;
       }
-      if (!parcelPhoto) {
+      if (bookingType !== 'pharmacy' && !parcelPhoto) {
         setErrorMessage('Add a photo of the parcel before adding this delivery.');
         return;
       }

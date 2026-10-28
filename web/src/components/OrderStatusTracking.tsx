@@ -27,6 +27,31 @@ interface OrderStatusTrackingProps {
   onRefreshOrders: () => void;
 }
 
+type RangePreset = 'all' | 'today' | '7d' | '30d' | '90d' | 'custom';
+
+const RANGE_OPTIONS: { value: RangePreset; label: string }[] = [
+  { value: 'all', label: 'All time' },
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '90d', label: 'Last 90 days' },
+  { value: 'custom', label: 'Custom' },
+];
+
+// Local calendar day as YYYY-MM-DD, so orders are grouped by the day the customer booked them
+const dayKey = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const daysAgoKey = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return dayKey(d);
+};
+
 export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
   orders,
   currentUserRole,
@@ -35,6 +60,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orders[0]?.id || null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [rangePreset, setRangePreset] = useState<RangePreset>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   // Sync selected order with latest orders
   React.useEffect(() => {
@@ -45,7 +73,34 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
 
   const selectedOrder = orders.find((o) => o.id === selectedOrderId) || orders[0] || null;
 
-  const filteredOrders = orders.filter((o) => {
+  // Date window in local YYYY-MM-DD; null means no limit on that side
+  const rangeFrom =
+    rangePreset === 'today' ? dayKey(new Date())
+    : rangePreset === '7d' ? daysAgoKey(6)
+    : rangePreset === '30d' ? daysAgoKey(29)
+    : rangePreset === '90d' ? daysAgoKey(89)
+    : rangePreset === 'custom' ? customFrom || null
+    : null;
+  const rangeTo = rangePreset === 'custom' ? customTo || null : null;
+
+  const inDateRange = (o: QuickzyOrder) => {
+    if (!rangeFrom && !rangeTo) return true;
+    if (!o.createdAt) return false;
+    const key = dayKey(new Date(o.createdAt));
+    if (rangeFrom && key < rangeFrom) return false;
+    if (rangeTo && key > rangeTo) return false;
+    return true;
+  };
+
+  const dateFilteredOrders = orders.filter((o) => o && o.id && inDateRange(o));
+
+  // Spend excludes cancelled orders
+  const billable = dateFilteredOrders.filter((o) => o.status !== 'cancelled');
+  const totalSpend = billable.reduce((sum, o) => sum + (o.priceGbp || 0), 0);
+  const deliveredCount = dateFilteredOrders.filter((o) => o.status === 'delivered').length;
+  const averageSpend = billable.length ? totalSpend / billable.length : 0;
+
+  const filteredOrders = dateFilteredOrders.filter((o) => {
     if (!o || !o.id) return false;
     const q = searchQuery.toLowerCase();
     const pk = o.pickupAddress?.postcode || '';
@@ -113,6 +168,61 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
         </div>
       </div>
 
+      {/* Date filter and small analytics */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setRangePreset(opt.value)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${
+                rangePreset === opt.value
+                  ? 'bg-emerald-500 text-neutral-950'
+                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {rangePreset === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                aria-label="From date"
+                className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-[11px] text-white"
+              />
+              <span className="text-[11px] text-neutral-500">to</span>
+              <input
+                type="date"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+                aria-label="To date"
+                className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-[11px] text-white"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { label: 'Orders', value: String(dateFilteredOrders.length) },
+            { label: 'Total spend', value: `£${totalSpend.toFixed(2)}` },
+            { label: 'Average', value: `£${averageSpend.toFixed(2)}` },
+            { label: 'Delivered', value: String(deliveredCount) },
+          ].map((stat) => (
+            <div key={stat.label} className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
+              <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">{stat.label}</p>
+              <p className="text-sm font-black text-white mt-0.5">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Orders List Column */}
         <div className="lg:col-span-1 space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
@@ -166,7 +276,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
           })}
 
           {filteredOrders.length === 0 && (
-            <p className="text-xs text-neutral-500 text-center py-10">No orders found.</p>
+            <p className="text-xs text-neutral-500 text-center py-10">
+              {rangePreset === 'all' && !searchQuery ? 'No orders found.' : 'No orders match this filter.'}
+            </p>
           )}
         </div>
 

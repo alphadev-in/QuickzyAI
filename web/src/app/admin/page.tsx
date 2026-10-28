@@ -170,6 +170,8 @@ export default function AdminDashboardPage() {
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const [assignDriverUid, setAssignDriverUid] = useState('');
   const [dispatchError, setDispatchError] = useState('');
+  // Parcel photo viewer for the orders table
+  const [previewPhoto, setPreviewPhoto] = useState<{ orderId: string; src: string } | null>(null);
 
   // Bulk assignment by location
   const [bulkDriverUid, setBulkDriverUid] = useState('');
@@ -1564,6 +1566,15 @@ export default function AdminDashboardPage() {
                                   Driver: {order.assignedDriverName}
                                 </span>
                               )}
+                              {order.parcelPhoto && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewPhoto({ orderId: order.id, src: order.parcelPhoto as string })}
+                                  className="px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded text-[10px] font-bold block"
+                                >
+                                  View parcel photo
+                                </button>
+                              )}
                               {order.driverLocation && (
                                 <a
                                   href={`https://www.google.com/maps?q=${order.driverLocation.lat},${order.driverLocation.lng}`}
@@ -1630,6 +1641,19 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </main>
+
+      {previewPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPreviewPhoto(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-4 max-w-2xl w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-white">Parcel photo · #{previewPhoto.orderId}</p>
+              <button type="button" onClick={() => setPreviewPhoto(null)} className="text-xs text-neutral-400 hover:text-white">Close</button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewPhoto.src} alt={`Parcel for order ${previewPhoto.orderId}`} className="w-full max-h-[70vh] object-contain rounded-xl bg-black" />
+          </div>
+        </div>
+      )}
 
       <footer className="border-t border-neutral-900 py-6 text-center text-xs text-neutral-500 space-y-1 mt-10">
         <p>© 2026 Quickzy • London Dispatcher & Fleet Management System.</p>
