@@ -12,11 +12,13 @@ import {
 
 interface SupportChatProps {
   email: string;
+  /** page: full screen tab on phones. floating: desktop corner panel */
+  mode: 'page' | 'floating';
 }
 
-// Help button and chat for any signed-in user. Replies from the Quickzy team appear live.
-export const SupportChat: React.FC<SupportChatProps> = ({ email }) => {
-  const [open, setOpen] = useState(false);
+// Help and chat for any signed-in user. Replies from the Quickzy team appear live.
+export const SupportChat: React.FC<SupportChatProps> = ({ email, mode }) => {
+  const [open, setOpen] = useState(mode === 'page');
   const [thread, setThread] = useState<SupportThread | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -56,19 +58,14 @@ export const SupportChat: React.FC<SupportChatProps> = ({ email }) => {
 
   const resolved = thread?.status === 'resolved';
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Get help from Quickzy support"
-        className="fixed right-4 bottom-24 lg:bottom-6 z-40 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs shadow-xl shadow-emerald-500/30 flex items-center gap-2"
-      >
-        <LifeBuoy className="w-4 h-4" /> Help
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 lg:inset-auto lg:right-6 lg:bottom-6 z-50 flex flex-col bg-neutral-950 lg:bg-neutral-900 lg:border lg:border-neutral-700 lg:rounded-2xl lg:w-96 lg:h-[30rem] shadow-2xl">
+  const panel = (
+        <div
+          className={
+            mode === 'page'
+              ? 'flex flex-col h-[calc(100dvh-9rem)] min-h-[420px] max-w-2xl mx-auto w-full bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden'
+              : 'flex flex-col w-96 h-[30rem] bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl overflow-hidden'
+          }
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
             <div>
               <p className="text-sm font-black text-white">Quickzy support</p>
@@ -76,9 +73,11 @@ export const SupportChat: React.FC<SupportChatProps> = ({ email }) => {
                 {resolved ? 'This issue is marked resolved.' : 'We usually reply within the hour.'}
               </p>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className="min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
+            {mode === 'floating' && (
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className="min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -105,7 +104,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ email }) => {
           </div>
 
           {error && <p className="px-4 text-xs text-red-400">{error}</p>}
-          <form onSubmit={send} className="p-3 border-t border-neutral-800 flex gap-2">
+          <form onSubmit={send} className="p-3 border-t border-neutral-800 flex gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <input
               type="text"
               value={draft}
@@ -124,7 +123,21 @@ export const SupportChat: React.FC<SupportChatProps> = ({ email }) => {
             </button>
           </form>
         </div>
-      )}
+  );
+
+  if (mode === 'page') return panel;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Get help from Quickzy support"
+        className="hidden lg:flex fixed right-6 bottom-6 z-40 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs shadow-xl shadow-emerald-500/30 items-center gap-2"
+      >
+        <LifeBuoy className="w-4 h-4" /> Help
+      </button>
+      {open && <div className="hidden lg:block fixed right-6 bottom-6 z-50">{panel}</div>}
     </>
   );
 };

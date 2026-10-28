@@ -38,7 +38,7 @@ import {
   Compass,
 } from 'lucide-react';
 
-type MainTab = 'index' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'storefront' | 'merchant' | 'driver' | 'dispatch';
+type MainTab = 'index' | 'booking' | 'bulk' | 'customers' | 'tracking' | 'storefront' | 'merchant' | 'driver' | 'dispatch' | 'help';
 
 // Sub-tabs within Book Couriers for business/admin
 type BookingSubTab = 'single' | 'bulk';
@@ -457,6 +457,10 @@ function MainApplicationContent() {
           )}
 
           {/* Driver Console */}
+          {activeTab === 'help' && currentUser && (
+            <SupportChat email={currentUser.email} mode="page" />
+          )}
+
           {activeTab === 'driver' && (
             <DriverCockpit
               currentUserEmail={currentUser?.email}
@@ -540,9 +544,9 @@ function MainApplicationContent() {
         />
       )}
 
-      {/* Help chat for customers and drivers; admin answers in the Support tab */}
+      {/* Help for customers and drivers: a full page on phones, plus a floating button on desktop */}
       {currentUser && currentUser.role !== 'admin' && currentUser.email !== 'prajapatikaranc@gmail.com' && (
-        <SupportChat email={currentUser.email} />
+        <SupportChat email={currentUser.email} mode="floating" />
       )}
 
       {/* Footer is for the website; hidden on phones so the app screens stay uncluttered */}

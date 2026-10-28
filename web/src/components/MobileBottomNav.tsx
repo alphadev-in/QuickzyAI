@@ -10,6 +10,7 @@ import {
   UserCircle,
   Home,
   Users,
+  LifeBuoy,
 } from 'lucide-react';
 import { UserRole } from '@/types/delivery';
 
@@ -47,6 +48,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       return [
         { id: 'driver', label: 'Home', icon: <Bike className="w-5 h-5" />, action: () => setActiveTab('driver') },
         { id: 'tracking', label: 'Deliveries', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
+        { id: 'help', label: 'Help', icon: <LifeBuoy className="w-5 h-5" />, action: () => setActiveTab('help') },
         { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
       ];
     }
@@ -56,6 +58,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         { id: 'booking', label: 'Book', icon: <Package className="w-5 h-5" />, action: () => setActiveTab('booking') },
         { id: 'tracking', label: 'My Orders', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
         { id: 'customers', label: 'Customers', icon: <Users className="w-5 h-5" />, action: () => setActiveTab('customers') },
+        { id: 'help', label: 'Help', icon: <LifeBuoy className="w-5 h-5" />, action: () => setActiveTab('help') },
         { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
       ];
     }
@@ -75,6 +78,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       { id: 'booking', label: 'Book', icon: <CalendarCheck className="w-5 h-5" />, action: () => setActiveTab('booking') },
       { id: 'tracking', label: 'My Orders', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
       { id: 'customers', label: 'Customers', icon: <Users className="w-5 h-5" />, action: () => setActiveTab('customers') },
+      { id: 'help', label: 'Help', icon: <LifeBuoy className="w-5 h-5" />, action: () => setActiveTab('help') },
       { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
     ];
   };
