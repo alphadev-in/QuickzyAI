@@ -27,13 +27,15 @@ import {
   DriverNotification,
   AGE_RESTRICTION_MIN_AGE,
   ageOnDate,
+  normalizePricingConfig,
+  validateParcelLimits,
 } from '@/types/delivery';
 
 export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
   try {
     const snap = await getDoc(doc(db, 'system_settings', 'pricing'));
     if (snap.exists()) {
-      return snap.data() as ParcelPricingConfig;
+      return normalizePricingConfig(snap.data());
     }
   } catch (err) {
     console.warn('Failed to load pricing config from Firestore, using default:', err);
@@ -42,7 +44,7 @@ export async function fetchPricingConfig(): Promise<ParcelPricingConfig> {
     const local = localStorage.getItem('quickzy_pricing_config');
     if (local) {
       try {
-        return JSON.parse(local);
+        return normalizePricingConfig(JSON.parse(local));
       } catch {}
     }
   }
@@ -128,7 +130,8 @@ export async function createOrder(
   pricingConfig?: ParcelPricingConfig,
   displayName?: string,
   payment?: { method: PaymentMethod; reference: string },
-  bulkImportId?: string
+  bulkImportId?: string,
+  extras?: { parcelPhoto?: string }
 ): Promise<QuickzyOrder> {
   const validated = CreateOrderSchema.parse(orderData);
   if (!validated.estimatedMiles) {
@@ -146,9 +149,15 @@ export async function createOrder(
     }
   }
 
+  const activePricing = pricingConfig || DEFAULT_PRICING_CONFIG;
+  if (validated.parcel) {
+    const limitError = validateParcelLimits(validated.type, validated.parcel, activePricing);
+    if (limitError) throw new Error(limitError);
+  }
+
   const quote = calculateDeliveryPrice(
-    { type: validated.type, estimatedMiles: validated.estimatedMiles },
-    pricingConfig || DEFAULT_PRICING_CONFIG
+    { type: validated.type, estimatedMiles: validated.estimatedMiles, weightKg: validated.parcel?.weightKg },
+    activePricing
   );
 
   const orderId = `QZK-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
@@ -165,6 +174,7 @@ export async function createOrder(
     paymentMethod: payment?.method,
     paymentReference: payment?.reference,
     bulkImportId,
+    parcelPhoto: extras?.parcelPhoto,
     notificationAlert: payment
       ? 'Payment received. Our driver will collect and deliver your order soon.'
       : undefined,

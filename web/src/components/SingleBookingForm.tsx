@@ -16,8 +16,10 @@ import {
   SAME_DAY_MAX_MILES,
   AGE_RESTRICTION_MIN_AGE,
   ageOnDate,
+  validateParcelLimits,
 } from '@/types/delivery';
 import { createOrder, fetchPricingConfig } from '@/lib/orderService';
+import { compressImageToDataUrl } from '@/lib/media';
 import { fetchRouteMiles } from '@/lib/routeMiles';
 import { CheckoutPanel } from '@/components/CheckoutPanel';
 import {
@@ -71,10 +73,13 @@ interface BasketItem {
   restrictedCategory: string;
   ageRestricted: boolean;
   recipientDob?: string;
+  parcelPhoto: string;
   estimatedMiles: number;
   durationMinutes: number | null;
   basePence: number;
+  weightPence: number;
   distancePence: number;
+  discountPence: number;
   totalPence: number;
 }
 
@@ -136,6 +141,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
   const [contentsDescription, setContentsDescription] = useState('Urgent London Package');
   const [isRestricted, setIsRestricted] = useState(false);
   const [ageRestricted, setAgeRestricted] = useState(false);
+  const [parcelPhoto, setParcelPhoto] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [recipientDob, setRecipientDob] = useState('');
   const [restrictedCategory, setRestrictedCategory] = useState('Medicines & Therapeutics');
   const [timeSlot, setTimeSlot] = useState<TimeSlotType>('same_day_asap');
@@ -180,6 +187,7 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
     setContentsDescription(bookingType === 'pharmacy' ? '' : 'Urgent London Package');
     setIsRestricted(false);
     setAgeRestricted(false);
+    setParcelPhoto('');
     setRecipientDob('');
   };
 
@@ -221,7 +229,21 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
         return;
       }
 
-      const quote = calculateDeliveryPrice({ type: bookingType, estimatedMiles: route.miles }, pricingConfig);
+      const parcelMeasure = { weightKg, lengthCm, widthCm, heightCm };
+      const limitError = validateParcelLimits(bookingType, parcelMeasure, pricingConfig);
+      if (limitError) {
+        setErrorMessage(limitError);
+        return;
+      }
+      if (!parcelPhoto) {
+        setErrorMessage('Add a photo of the parcel before adding this delivery.');
+        return;
+      }
+
+      const quote = calculateDeliveryPrice(
+        { type: bookingType, estimatedMiles: route.miles, weightKg },
+        pricingConfig
+      );
 
       setBasket((prev) => [
         ...prev,
@@ -242,10 +264,13 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           restrictedCategory,
           ageRestricted,
           recipientDob: ageRestricted ? recipientDob : undefined,
+          parcelPhoto,
           estimatedMiles: quote.estimatedMiles,
           durationMinutes: route.durationMinutes ?? null,
           basePence: quote.baseFeePence,
+          weightPence: quote.weightFeePence,
           distancePence: quote.distanceFeePence,
+          discountPence: quote.discountPence,
           totalPence: quote.totalPence,
         },
       ]);
@@ -298,7 +323,9 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           },
           pricingConfig,
           displayName,
-          payment
+          payment,
+          undefined,
+          { parcelPhoto: job.parcelPhoto }
         );
         created.push(order);
       }
@@ -489,14 +516,44 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
           <div className="bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">3. Parcel Weight &amp; Dimensions</h4>
-              <span className="text-[10px] text-neutral-500">Max 30kg per delivery</span>
+              <span className="text-[10px] text-neutral-500">
+                Max {pricingConfig[bookingType].maxWeightKg}kg · {pricingConfig[bookingType].maxLengthCm} × {pricingConfig[bookingType].maxWidthCm} × {pricingConfig[bookingType].maxHeightCm} cm
+              </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <NumberField label="Weight (kg)" value={weightKg} step="0.1" min="0.1" max="30" onChange={(v) => setWeightKg(v || 0.1)} />
+              <NumberField label="Weight (kg)" value={weightKg} step="0.1" min="0.1" max={String(pricingConfig[bookingType].maxWeightKg)} onChange={(v) => setWeightKg(v || 0.1)} />
               <NumberField label="Length (cm)" value={lengthCm} min="5" onChange={(v) => setLengthCm(v || 5)} />
               <NumberField label="Width (cm)" value={widthCm} min="5" onChange={(v) => setWidthCm(v || 5)} />
               <NumberField label="Height (cm)" value={heightCm} min="5" onChange={(v) => setHeightCm(v || 5)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] text-neutral-400 block">Photo of the parcel *</label>
+              <div className="flex items-center gap-3">
+                {parcelPhoto && <img src={parcelPhoto} alt="Parcel preview" className="w-16 h-16 rounded-lg object-cover border border-neutral-700" />}
+                <label className="cursor-pointer px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-bold text-neutral-200">
+                  {photoBusy ? 'Processing...' : parcelPhoto ? 'Replace photo' : 'Take or choose photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setPhotoBusy(true);
+                      try {
+                        setParcelPhoto(await compressImageToDataUrl(file, 1024, 0.7));
+                      } catch (err: any) {
+                        setErrorMessage(err?.message || 'Could not read that photo');
+                      } finally {
+                        setPhotoBusy(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
             </div>
 
             <div>
@@ -584,7 +641,8 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
                   </p>
                   <p className="text-neutral-400 truncate">
                     {job.type.toUpperCase()} · {job.estimatedMiles.toFixed(2)} mi
-                    {job.durationMinutes != null && ` · ~${job.durationMinutes} min drive`} · Base {formatGbp(job.basePence)} + Distance {formatGbp(job.distancePence)}
+                    {job.durationMinutes != null && ` · ~${job.durationMinutes} min drive`} · Base {formatGbp(job.basePence)} + Weight {formatGbp(job.weightPence)} + Distance {formatGbp(job.distancePence)}
+                    {job.discountPence > 0 && <span className="text-emerald-400"> · Volume discount −{formatGbp(job.discountPence)}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

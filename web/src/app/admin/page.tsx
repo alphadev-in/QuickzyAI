@@ -36,12 +36,44 @@ import {
   Sparkles,
   Wallet,
 } from 'lucide-react';
-import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG } from '@/types/delivery';
+import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG, PricingCategory, PRICING_CATEGORY_LABELS, CategoryPricing, calculateDeliveryPrice } from '@/types/delivery';
 import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig, assignOrderToDriver } from '@/lib/orderService';
 import { adminGrantCredit, getCreditBalancePence } from '@/lib/creditService';
 import { fetchRouteMiles } from '@/lib/routeMiles';
 
 const ADMIN_AUTHORIZED_EMAIL = 'prajapatikaranc@gmail.com';
+
+const formatGbp = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+
+// Number input that lets you type freely ("1.", "1.25", "10") and only tidies the value on blur.
+// Controlled inputs that reformat on every keystroke jump around while typing decimals.
+const DraftNumberInput: React.FC<{
+  value: number;
+  decimals: number;
+  onValue: (v: number) => void;
+  className?: string;
+  label: string;
+}> = ({ value, decimals, onValue, className, label }) => {
+  const [text, setText] = useState<string | null>(null);
+  const allowed = decimals > 0 ? new RegExp(`^\\d*\\.?\\d{0,${decimals}}$`) : /^\d*$/;
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      aria-label={label}
+      value={text ?? value.toFixed(decimals)}
+      onChange={(e) => {
+        const typed = e.target.value.replace(',', '.');
+        if (!allowed.test(typed)) return;
+        setText(typed);
+        const parsed = parseFloat(typed);
+        onValue(Number.isFinite(parsed) ? parsed : 0);
+      }}
+      onBlur={() => setText(null)}
+      className={className}
+    />
+  );
+};
 
 interface UserRecord {
   uid: string;
@@ -213,6 +245,14 @@ export default function AdminDashboardPage() {
     } finally {
       setUsersLoading(false);
     }
+  };
+
+  const updatePricing = (cat: PricingCategory, key: keyof CategoryPricing, value: number) => {
+    const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
+    setPricingConfig((prev) => ({
+      ...prev,
+      [cat]: { ...prev[cat], [key]: key === 'discountPercent' ? Math.min(100, safe) : safe },
+    }));
   };
 
   const handleSavePricing = async (e: React.FormEvent) => {
@@ -784,15 +824,16 @@ export default function AdminDashboardPage() {
             )}
 
             {activeTab === 'pricing' && (
-              <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-neutral-800 gap-2">
+              <div className="space-y-5">
+                <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-black text-white flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-emerald-400" />
-                      London Parcel & Booking Pricing Metrics
+                      Pricing Metrics by Category
                     </h3>
                     <p className="text-xs text-neutral-400">
-                      Set base fee, mileage rate, and surcharge metrics used across all user bookings in Firestore.
+                      Each category has its own rates and size limits. Price = base + (kg x per kg) + (miles x per mile).
+                      When the subtotal is above the threshold, the discount is taken off.
                     </p>
                   </div>
                   {pricingSaved && (
@@ -802,45 +843,74 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                <form onSubmit={handleSavePricing} className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-neutral-400 block font-semibold">Base Fee (£)</label>
-                    <input
-                      type="number"
-                      step="0.10"
-                      value={(pricingConfig.baseFeePence / 100).toFixed(2)}
-                      onChange={(e) =>
-                        setPricingConfig({
-                          ...pricingConfig,
-                          baseFeePence: Math.round(parseFloat(e.target.value || '0') * 100),
-                        })
-                      }
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
+                <form onSubmit={handleSavePricing} className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                  {(Object.keys(PRICING_CATEGORY_LABELS) as PricingCategory[]).map((cat) => {
+                    const c = pricingConfig[cat];
+                    const example = calculateDeliveryPrice({ type: cat, estimatedMiles: 10, weightKg: 10 }, pricingConfig);
+                    const inputClass = "w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-xs text-white";
+                    // Money fields are stored in pence; the input works in pounds
+                    const gbp = (key: keyof CategoryPricing, label: string) => (
+                      <div className="space-y-1" key={key}>
+                        <label className="text-[11px] text-neutral-400 block font-semibold">{label}</label>
+                        <DraftNumberInput
+                          label={label}
+                          value={c[key] / 100}
+                          decimals={2}
+                          className={inputClass}
+                          onValue={(pounds) => updatePricing(cat, key, Math.round(pounds * 100))}
+                        />
+                      </div>
+                    );
+                    const num = (key: keyof CategoryPricing, label: string, decimals = 0) => (
+                      <div className="space-y-1" key={key}>
+                        <label className="text-[11px] text-neutral-400 block font-semibold">{label}</label>
+                        <DraftNumberInput
+                          label={label}
+                          value={c[key]}
+                          decimals={decimals}
+                          className={inputClass}
+                          onValue={(v) => updatePricing(cat, key, v)}
+                        />
+                      </div>
+                    );
+                    return (
+                      <div key={cat} className="p-5 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-4">
+                        <h4 className="text-sm font-black text-white">{PRICING_CATEGORY_LABELS[cat]}</h4>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-neutral-400 block font-semibold">Per Mile (£)</label>
-                    <input
-                      type="number"
-                      step="0.10"
-                      value={(pricingConfig.perMilePence / 100).toFixed(2)}
-                      onChange={(e) =>
-                        setPricingConfig({
-                          ...pricingConfig,
-                          perMilePence: Math.round(parseFloat(e.target.value || '0') * 100),
-                        })
-                      }
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {gbp('basePence', 'Base price (£)')}
+                          {gbp('perKgPence', 'Per kg (£)')}
+                          {gbp('perMilePence', 'Per mile (£)')}
+                          {gbp('discountThresholdPence', 'Discount above (£)')}
+                          {num('discountPercent', 'Discount (%)')}
+                        </div>
 
-                  <div className="space-y-1 col-span-2 sm:col-span-1 flex flex-col justify-end">
+                        <p className="text-[11px] text-neutral-400 font-semibold pt-2">Maximum parcel size</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {num('maxWeightKg', 'Weight (kg)', 1)}
+                          {num('maxLengthCm', 'Length (cm)')}
+                          {num('maxWidthCm', 'Width (cm)')}
+                          {num('maxHeightCm', 'Height (cm)')}
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-[11px] space-y-1">
+                          <p className="text-neutral-400 font-semibold">Example: 10 kg, 10 miles</p>
+                          <p className="text-neutral-300">
+                            Subtotal {formatGbp(example.subtotalPence)}
+                            {example.discountPence > 0 && <> · discount −{formatGbp(example.discountPence)}</>}
+                          </p>
+                          <p className="text-emerald-400 font-black">Total £{example.totalGbp.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="xl:col-span-3 flex justify-end">
                     <button
                       type="submit"
-                      className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-neutral-950 font-black text-xs"
                     >
-                      Save Metrics
+                      Save all pricing
                     </button>
                   </div>
                 </form>

@@ -11,6 +11,7 @@ import {
   DEFAULT_PRICING_CONFIG,
   PaymentMethod,
   calculateDeliveryPrice,
+  validateParcelLimits,
   SAME_DAY_MAX_MILES,
 } from '@/types/delivery';
 import {
@@ -103,7 +104,19 @@ export const BulkParcelBooking: React.FC<BulkParcelBookingProps> = ({
           });
           return;
         }
-        const quote = calculateDeliveryPrice({ type: row.type, estimatedMiles: route.miles }, pricingConfig);
+        const limitError = validateParcelLimits(
+          row.type,
+          { weightKg: row.weightKg, lengthCm: row.lengthCm, widthCm: row.widthCm, heightCm: row.heightCm },
+          pricingConfig
+        );
+        if (limitError) {
+          failed.push({ row: i + 2, data: row, errors: [limitError] });
+          return;
+        }
+        const quote = calculateDeliveryPrice(
+          { type: row.type, estimatedMiles: route.miles, weightKg: row.weightKg },
+          pricingConfig
+        );
         priced.push({ ...row, rowNumber: i + 2, estimatedMiles: quote.estimatedMiles, totalPence: quote.totalPence });
       });
 

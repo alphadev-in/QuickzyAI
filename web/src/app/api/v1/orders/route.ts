@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     const quote = calculateDeliveryPrice({
       type: validated.type,
       estimatedMiles: validated.estimatedMiles,
+      weightKg: validated.parcel?.weightKg,
     });
 
     const orderId = `QZK-API-${Date.now().toString(36).toUpperCase()}`;

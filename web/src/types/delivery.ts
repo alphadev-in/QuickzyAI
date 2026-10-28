@@ -96,6 +96,8 @@ export interface QuickzyOrder {
   scheduledFor?: string; // ISO date string
   isSameDayCutoffExceeded: boolean;
   parcel?: ParcelDetails;
+  /** Photo of the parcel taken at booking (compressed JPEG data URL) */
+  parcelPhoto?: string;
   /** Present when the parcel is age-restricted; delivery needs a passing driver check */
   ageCheck?: AgeCheck;
   /** Latest position shared by the driver while out for delivery */
@@ -157,7 +159,10 @@ export interface BulkImportRecord {
 // Pricing calculation helper
 export interface PriceQuote {
   baseFeePence: number;
+  weightFeePence: number;
   distanceFeePence: number;
+  subtotalPence: number;
+  discountPence: number;
   totalPence: number;
   totalGbp: number;
   estimatedMiles: number;
@@ -198,39 +203,122 @@ export function evaluateSameDayCutoff(requestedDate?: Date): {
   };
 }
 
-export interface ParcelPricingConfig {
-  baseFeePence: number;
-  perMilePence: number;
-}
+// Pricing is set separately for each category. Booking types are the categories.
+export type PricingCategory = BookingType;
 
-export const DEFAULT_PRICING_CONFIG: ParcelPricingConfig = {
-  baseFeePence: 450,
-  perMilePence: 120,
+export const PRICING_CATEGORY_LABELS: Record<PricingCategory, string> = {
+  pharmacy: 'Pharmacy',
+  food: 'Food & Grocery',
+  parcel: 'Parcel & Freight',
 };
 
-// Base + per-mile pricing only. No weight, volumetric or restricted-item surcharges.
+export interface CategoryPricing {
+  basePence: number;
+  perKgPence: number;
+  perMilePence: number;
+  /** Largest parcel accepted for this category; bigger parcels are refused */
+  maxWeightKg: number;
+  maxLengthCm: number;
+  maxWidthCm: number;
+  maxHeightCm: number;
+  /** Discount applies when the subtotal is above this amount */
+  discountThresholdPence: number;
+  discountPercent: number;
+}
+
+export type ParcelPricingConfig = Record<PricingCategory, CategoryPricing>;
+
+export const DEFAULT_PRICING_CONFIG: ParcelPricingConfig = {
+  pharmacy: {
+    basePence: 450, perKgPence: 100, perMilePence: 120,
+    maxWeightKg: 10, maxLengthCm: 40, maxWidthCm: 30, maxHeightCm: 30,
+    discountThresholdPence: 3000, discountPercent: 10,
+  },
+  food: {
+    basePence: 400, perKgPence: 100, perMilePence: 110,
+    maxWeightKg: 15, maxLengthCm: 50, maxWidthCm: 40, maxHeightCm: 40,
+    discountThresholdPence: 3000, discountPercent: 10,
+  },
+  parcel: {
+    basePence: 450, perKgPence: 150, perMilePence: 120,
+    maxWeightKg: 30, maxLengthCm: 100, maxWidthCm: 60, maxHeightCm: 60,
+    discountThresholdPence: 3000, discountPercent: 10,
+  },
+};
+
+const CATEGORY_FIELDS: (keyof CategoryPricing)[] = [
+  'basePence', 'perKgPence', 'perMilePence', 'maxWeightKg', 'maxLengthCm', 'maxWidthCm', 'maxHeightCm',
+  'discountThresholdPence', 'discountPercent',
+];
+
+// Reads the stored settings. Older documents (single base fee and per-mile rate) and missing fields
+// fall back to the defaults, so existing installs keep working until an admin saves the new metrics.
+export function normalizePricingConfig(raw: unknown): ParcelPricingConfig {
+  const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const result = {} as ParcelPricingConfig;
+  for (const category of Object.keys(DEFAULT_PRICING_CONFIG) as PricingCategory[]) {
+    const fromStore = (source[category] && typeof source[category] === 'object' ? source[category] : {}) as Record<string, unknown>;
+    const merged = { ...DEFAULT_PRICING_CONFIG[category] } as CategoryPricing;
+    for (const field of CATEGORY_FIELDS) {
+      const value = Number(fromStore[field]);
+      if (fromStore[field] !== undefined && fromStore[field] !== null && Number.isFinite(value) && value >= 0) {
+        merged[field] = value;
+      }
+    }
+    result[category] = merged;
+  }
+  return result;
+}
+
+export interface ParcelMeasure {
+  weightKg: number;
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
+}
+
+// Returns a message when the parcel is over the category limits, otherwise null
+export function validateParcelLimits(
+  type: PricingCategory,
+  parcel: ParcelMeasure,
+  config: ParcelPricingConfig = DEFAULT_PRICING_CONFIG
+): string | null {
+  const c = config[type];
+  const label = PRICING_CATEGORY_LABELS[type];
+  if (parcel.weightKg > c.maxWeightKg) return `${label} parcels can weigh up to ${c.maxWeightKg} kg (this one is ${parcel.weightKg} kg).`;
+  if (parcel.lengthCm > c.maxLengthCm) return `${label} parcels can be up to ${c.maxLengthCm} cm long.`;
+  if (parcel.widthCm > c.maxWidthCm) return `${label} parcels can be up to ${c.maxWidthCm} cm wide.`;
+  if (parcel.heightCm > c.maxHeightCm) return `${label} parcels can be up to ${c.maxHeightCm} cm high.`;
+  return null;
+}
+
+// Price = base + (weight x per kg) + (miles x per mile). If the subtotal is above the category threshold,
+// the discount percentage is taken off. Example: 10 kg, 10 miles, base £3, £2/kg, £1/mile = £33 -> £29.70.
 export function calculateDeliveryPrice(
   params: {
     type: BookingType;
     estimatedMiles?: number;
+    weightKg?: number;
   },
   config: ParcelPricingConfig = DEFAULT_PRICING_CONFIG
 ): PriceQuote {
+  const c = config[params.type];
   const miles = Math.max(1, Math.round((params.estimatedMiles || 1) * 100) / 100);
-  let baseFee = config.baseFeePence;
+  const weight = Math.max(0, params.weightKg || 0);
 
-  if (params.type === 'pharmacy') {
-    baseFee = Math.round(config.baseFeePence * 1.2);
-  } else if (params.type === 'food') {
-    baseFee = Math.round(config.baseFeePence * 0.9);
-  }
-
-  const distanceFee = Math.round(miles * config.perMilePence);
-  const totalPence = baseFee + distanceFee;
+  const baseFee = c.basePence;
+  const weightFee = Math.round(weight * c.perKgPence);
+  const distanceFee = Math.round(miles * c.perMilePence);
+  const subtotal = baseFee + weightFee + distanceFee;
+  const discount = subtotal > c.discountThresholdPence ? Math.round((subtotal * c.discountPercent) / 100) : 0;
+  const totalPence = subtotal - discount;
 
   return {
     baseFeePence: baseFee,
+    weightFeePence: weightFee,
     distanceFeePence: distanceFee,
+    subtotalPence: subtotal,
+    discountPence: discount,
     totalPence,
     totalGbp: Number((totalPence / 100).toFixed(2)),
     estimatedMiles: miles,
