@@ -608,9 +608,9 @@ export const SingleBookingForm: React.FC<SingleBookingFormProps> = ({
 
         {/* 4. Dispatch speed + add to basket */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-neutral-800">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto min-w-0">
             <span className="text-xs text-neutral-400">Dispatch Speed:</span>
-            <select value={timeSlot} onChange={(e) => setTimeSlot(e.target.value as TimeSlotType)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
+            <select value={timeSlot} onChange={(e) => setTimeSlot(e.target.value as TimeSlotType)} className="w-full sm:w-auto max-w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none">
               <option value="same_day_asap">Instant Same-Day ASAP (Within 15 miles)</option>
               <option value="scheduled">Scheduled Evening Slot (18:00 - 21:00)</option>
             </select>

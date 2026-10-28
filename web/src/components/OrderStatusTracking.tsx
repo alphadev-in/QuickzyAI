@@ -20,11 +20,14 @@ import {
   Activity,
 } from 'lucide-react';
 import { OpenStreetMapViewer } from './OpenStreetMapViewer';
+import { CustomerNotifications } from './CustomerNotifications';
 
 interface OrderStatusTrackingProps {
   orders: QuickzyOrder[];
   currentUserRole: UserRole;
   onRefreshOrders: () => void;
+  /** Signed-in user's email; enables the customer notification list */
+  currentUserEmail?: string;
 }
 
 type RangePreset = 'all' | 'today' | '7d' | '30d' | '90d' | 'custom';
@@ -56,11 +59,13 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
   orders,
   currentUserRole,
   onRefreshOrders,
+  currentUserEmail,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orders[0]?.id || null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [rangePreset, setRangePreset] = useState<RangePreset>('all');
+  // Today is the default view; the list is newest first
+  const [rangePreset, setRangePreset] = useState<RangePreset>('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
@@ -100,7 +105,8 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
   const deliveredCount = dateFilteredOrders.filter((o) => o.status === 'delivered').length;
   const averageSpend = billable.length ? totalSpend / billable.length : 0;
 
-  const filteredOrders = dateFilteredOrders.filter((o) => {
+  const filteredOrders = dateFilteredOrders
+    .filter((o) => {
     if (!o || !o.id) return false;
     const q = searchQuery.toLowerCase();
     const pk = o.pickupAddress?.postcode || '';
@@ -112,7 +118,9 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
       dp.toLowerCase().includes(q) ||
       tp.toLowerCase().includes(q)
     );
-  });
+  })
+    // Newest first
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const handleAdvanceStatus = async (orderId: string, nextStatus: OrderStatus) => {
     setIsUpdating(true);
@@ -167,6 +175,8 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
           />
         </div>
       </div>
+
+      {currentUserEmail && currentUserRole === 'customer' && <CustomerNotifications email={currentUserEmail} />}
 
       {/* Date filter and small analytics */}
       <div className="space-y-3">

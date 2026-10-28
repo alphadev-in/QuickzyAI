@@ -16,6 +16,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { CustomerModule } from '@/components/CustomerModule';
 import { CreditWallet } from '@/components/CreditWallet';
 import { SupportChat } from '@/components/SupportChat';
+import { HelpCenter } from '@/components/HelpCenter';
 import { AddressItem, CustomerRecord, QuickzyOrder, UserRole } from '@/types/delivery';
 import { fetchUserAddresses, fetchAllOrders } from '@/lib/orderService';
 import { fetchCustomers } from '@/lib/customerService';
@@ -218,6 +219,9 @@ function MainApplicationContent() {
         setActiveTab={(tab) => {
           if (tab === 'booking' || tab === 'bulk' || tab === 'tracking') {
             requireLoginForTab(tab);
+          } else if ((tab as string) === 'index' && currentUser?.role === 'driver') {
+            // Drivers' home is their own dashboard, not the booking landing page
+            setActiveTab('driver');
           } else {
             setActiveTab(tab);
           }
@@ -350,25 +354,6 @@ function MainApplicationContent() {
       {/* Authenticated Dashboard */}
       {activeTab !== 'index' && (
         <main key={activeTab} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6 animate-fade-in-up">
-          {/* Status bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl glass-panel text-xs">
-            <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={() => setActiveTab('index')}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300"
-              >
-                ← Home
-              </button>
-              <button
-                onClick={handleSignOutUser}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          </div>
-
           {/* Book Couriers — single + optional bulk sub-tabs */}
           {(activeTab === 'booking' || activeTab === 'bulk') && (
             <div className="space-y-4">
@@ -453,13 +438,12 @@ function MainApplicationContent() {
               orders={orders}
               currentUserRole={currentUser?.role || 'customer'}
               onRefreshOrders={loadData}
+              currentUserEmail={currentUser?.email}
             />
           )}
 
           {/* Driver Console */}
-          {activeTab === 'help' && currentUser && (
-            <SupportChat email={currentUser.email} mode="page" />
-          )}
+          {activeTab === 'help' && currentUser && <HelpCenter email={currentUser.email} />}
 
           {activeTab === 'driver' && (
             <DriverCockpit

@@ -16,7 +16,7 @@ const ADMIN_EMAIL = 'prajapatikaranc@gmail.com';
 // Admin inbox: every support thread, open ones first. Reply in the thread, then resolve or reopen it.
 export const AdminSupportInbox: React.FC = () => {
   const [threads, setThreads] = useState<SupportThread[]>([]);
-  const [activeEmail, setActiveEmail] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [reply, setReply] = useState('');
   const [error, setError] = useState('');
@@ -26,23 +26,23 @@ export const AdminSupportInbox: React.FC = () => {
   useEffect(() => subscribeToAllThreads(setThreads), []);
 
   useEffect(() => {
-    if (!activeEmail) return;
-    return subscribeToMessages(activeEmail, setMessages);
-  }, [activeEmail]);
+    if (!activeId) return;
+    return subscribeToMessages(activeId, setMessages);
+  }, [activeId]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
 
-  const active = threads.find((t) => t.ownerEmail === activeEmail) || null;
+  const active = threads.find((t) => t.id === activeId) || null;
 
   const sendReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeEmail || !reply.trim()) return;
+    if (!active || !reply.trim()) return;
     setSending(true);
     setError('');
     try {
-      await sendSupportMessage(activeEmail, 'admin', ADMIN_EMAIL, reply);
+      await sendSupportMessage(active, 'admin', ADMIN_EMAIL, reply);
       setReply('');
     } catch (err: any) {
       setError(err?.message || 'Reply could not be sent');
@@ -54,7 +54,7 @@ export const AdminSupportInbox: React.FC = () => {
   const toggleStatus = async () => {
     if (!active) return;
     try {
-      await setSupportStatus(active.ownerEmail, active.status === 'open' ? 'resolved' : 'open');
+      await setSupportStatus(active.id, active.status === 'open' ? 'resolved' : 'open');
     } catch (err: any) {
       setError(err?.message || 'Status could not be changed');
     }
@@ -71,9 +71,9 @@ export const AdminSupportInbox: React.FC = () => {
             <button
               key={t.id}
               type="button"
-              onClick={() => setActiveEmail(t.ownerEmail)}
+              onClick={() => setActiveId(t.id)}
               className={`w-full text-left p-3 rounded-xl border text-xs transition ${
-                activeEmail === t.ownerEmail ? 'border-emerald-500 bg-emerald-500/10' : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700'
+                activeId === t.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700'
               }`}
             >
               <span className="flex items-center justify-between gap-2">
@@ -86,6 +86,7 @@ export const AdminSupportInbox: React.FC = () => {
                   </span>
                 )}
               </span>
+              <span className="block text-[11px] text-neutral-500 truncate">{t.subject}</span>
               <span className="block text-neutral-400 truncate mt-1">{t.lastMessage}</span>
             </button>
           );

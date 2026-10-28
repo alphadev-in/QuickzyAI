@@ -219,6 +219,14 @@ export async function createOrder(
   // booked to the customer while admin and drivers never see it.
   await setDoc(doc(db, 'orders', orderId), newOrder);
 
+  if (userEmail) {
+    await createDriverNotification(userEmail, {
+      orderId,
+      title: 'Order received',
+      message: `Order ${orderId} is booked for £${quote.totalGbp.toFixed(2)}. We will tell you when a driver is assigned.`,
+    }).catch((err) => console.warn('Could not send order notification:', err));
+  }
+
   saveOrderLocal(newOrder);
   return newOrder;
 }
@@ -389,6 +397,15 @@ export async function updateOrderStatus(
   patchData.activities = [...existingActivities, newActivity];
   await updateDoc(orderRef, patchData);
 
+  // Tell the customer about the change. A failed notification must not fail the status update.
+  const ownerEmail = existingSnap.exists() ? (existingSnap.data().userEmail as string | undefined) : undefined;
+  const customerNote = customerNotice(newStatus, meta);
+  if (ownerEmail && customerNote) {
+    await createDriverNotification(ownerEmail, { orderId, ...customerNote }).catch((err) =>
+      console.warn('Could not send customer notification:', err)
+    );
+  }
+
   const orders = getLocalOrders();
   const idx = orders.findIndex((o) => o.id === orderId);
   if (idx !== -1) {
@@ -466,6 +483,29 @@ export function subscribeToDriverNotifications(
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
   await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+}
+
+// Customer-facing wording for each status change
+function customerNotice(
+  status: QuickzyOrder['status'],
+  meta: UpdateOrderMeta
+): { title: string; message: string } | null {
+  switch (status) {
+    case 'out_for_delivery':
+      return meta.driverName
+        ? { title: 'Driver assigned', message: `${meta.driverName} is on the way with your parcel.` }
+        : { title: 'Out for delivery', message: 'Your parcel is out for delivery.' };
+    case 'collected':
+      return { title: 'Parcel collected', message: 'Your parcel has been collected.' };
+    case 'delivered':
+      return { title: 'Delivered', message: 'Your parcel has been delivered. Proof of delivery is in your order.' };
+    case 'returned':
+      return { title: 'Parcel returned', message: meta.details || 'Your parcel could not be delivered and is returning to dispatch.' };
+    case 'cancelled':
+      return { title: 'Order cancelled', message: 'Your order has been cancelled.' };
+    default:
+      return null;
+  }
 }
 
 // Driver removes a notification from their own list

@@ -1686,7 +1686,7 @@ export default function AdminDashboardPage() {
         if (!detailOrder) return null;
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 overflow-y-auto" onClick={() => setDetailOrderId(null)}>
-            <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-4 max-w-4xl w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-4 max-w-4xl w-full space-y-3 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-white">Order #{detailOrder.id} · admin view</p>
                 <button type="button" onClick={() => setDetailOrderId(null)} className="text-xs text-neutral-400 hover:text-white">Close</button>

@@ -7,22 +7,26 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
-// One support thread per user, keyed by their email: support_threads/{email}
-// Messages live in support_threads/{email}/messages. Admin replies with from = 'admin'.
+// support_threads/{threadId}: one document per chat. ownerEmail is the customer or driver.
+// Messages live in support_threads/{threadId}/messages with ownerEmail copied onto each message
+// so the Firestore rules can check it without extra reads.
 export type SupportStatus = 'open' | 'resolved';
 export type SupportSender = 'customer' | 'admin';
 
 export interface SupportThread {
   id: string;
   ownerEmail: string;
+  subject: string;
   status: SupportStatus;
   lastMessage: string;
   lastFrom: SupportSender;
   updatedAt: string;
+  createdAt: string;
 }
 
 export interface SupportMessage {
@@ -38,68 +42,95 @@ const toIso = (value: unknown) => {
   return typeof value === 'string' ? value : new Date().toISOString();
 };
 
-export function subscribeToThread(email: string, onChange: (thread: SupportThread | null) => void): () => void {
-  const key = email.toLowerCase();
-  return onSnapshot(doc(db, 'support_threads', key), (snap) => {
-    if (!snap.exists()) return onChange(null);
-    const d = snap.data();
-    onChange({
-      id: snap.id,
-      ownerEmail: d.ownerEmail,
-      status: d.status || 'open',
-      lastMessage: d.lastMessage || '',
-      lastFrom: d.lastFrom || 'customer',
-      updatedAt: toIso(d.updatedAt),
-    });
-  }, (err) => console.warn('Support thread listener failed:', err));
+const toThread = (id: string, d: Record<string, any>): SupportThread => ({
+  id,
+  ownerEmail: d.ownerEmail || '',
+  subject: d.subject || 'Support request',
+  status: (d.status || 'open') as SupportStatus,
+  lastMessage: d.lastMessage || '',
+  lastFrom: (d.lastFrom || 'customer') as SupportSender,
+  updatedAt: toIso(d.updatedAt),
+  createdAt: toIso(d.createdAt),
+});
+
+// The signed-in user's own chats (newest first, sorted in the app to avoid a composite index)
+export function subscribeToMyThreads(email: string, onChange: (threads: SupportThread[]) => void): () => void {
+  const q = query(collection(db, 'support_threads'), where('ownerEmail', '==', email.toLowerCase()));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => toThread(d.id, d.data())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))),
+    (err) => console.warn('Support threads listener failed:', err)
+  );
 }
 
-export function subscribeToMessages(email: string, onChange: (messages: SupportMessage[]) => void): () => void {
-  const q = query(collection(db, 'support_threads', email.toLowerCase(), 'messages'), orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<SupportMessage, 'id' | 'createdAt'>), createdAt: toIso(d.data().createdAt) })));
-  }, (err) => console.warn('Support messages listener failed:', err));
-}
-
-// Admin: all threads, most recent first
+// Admin: every chat, newest first
 export function subscribeToAllThreads(onChange: (threads: SupportThread[]) => void): () => void {
-  return onSnapshot(collection(db, 'support_threads'), (snap) => {
-    const threads = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        ownerEmail: data.ownerEmail || d.id,
-        status: (data.status || 'open') as SupportStatus,
-        lastMessage: data.lastMessage || '',
-        lastFrom: (data.lastFrom || 'customer') as SupportSender,
-        updatedAt: toIso(data.updatedAt),
-      };
-    });
-    onChange(threads.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-  }, (err) => console.warn('Support inbox listener failed:', err));
+  return onSnapshot(
+    collection(db, 'support_threads'),
+    (snap) => onChange(snap.docs.map((d) => toThread(d.id, d.data())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))),
+    (err) => console.warn('Support inbox listener failed:', err)
+  );
+}
+
+export function subscribeToMessages(threadId: string, onChange: (messages: SupportMessage[]) => void): () => void {
+  const q = query(collection(db, 'support_threads', threadId, 'messages'), orderBy('createdAt', 'asc'));
+  return onSnapshot(
+    q,
+    (snap) =>
+      onChange(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return { id: d.id, from: data.from, authorEmail: data.authorEmail, text: data.text, createdAt: toIso(data.createdAt) };
+        })
+      ),
+    (err) => console.warn('Support messages listener failed:', err)
+  );
+}
+
+// Starts a new chat with its first message. Returns the new thread id.
+export async function createSupportThread(ownerEmail: string, firstMessage: string): Promise<string> {
+  const owner = ownerEmail.toLowerCase();
+  const text = firstMessage.trim();
+  const now = new Date().toISOString();
+  const ref = await addDoc(collection(db, 'support_threads'), {
+    ownerEmail: owner,
+    subject: text.slice(0, 80),
+    status: 'open',
+    lastMessage: text.slice(0, 200),
+    lastFrom: 'customer',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await addDoc(collection(db, 'support_threads', ref.id, 'messages'), {
+    ownerEmail: owner,
+    from: 'customer',
+    authorEmail: owner,
+    text: text.slice(0, 2000),
+    createdAt: now,
+  });
+  return ref.id;
 }
 
 export async function sendSupportMessage(
-  threadEmail: string,
+  thread: Pick<SupportThread, 'id' | 'ownerEmail'>,
   from: SupportSender,
   authorEmail: string,
   text: string
 ): Promise<void> {
-  const key = threadEmail.toLowerCase();
   const trimmed = text.trim();
   if (!trimmed) return;
   const now = new Date().toISOString();
-  await addDoc(collection(db, 'support_threads', key, 'messages'), {
+  await addDoc(collection(db, 'support_threads', thread.id, 'messages'), {
+    ownerEmail: thread.ownerEmail.toLowerCase(),
     from,
     authorEmail: authorEmail.toLowerCase(),
     text: trimmed.slice(0, 2000),
     createdAt: now,
   });
   await setDoc(
-    doc(db, 'support_threads', key),
+    doc(db, 'support_threads', thread.id),
     {
-      ownerEmail: key,
-      // A customer's new message reopens a resolved thread
+      // A customer's new message reopens a resolved chat
       status: from === 'customer' ? 'open' : undefined,
       lastMessage: trimmed.slice(0, 200),
       lastFrom: from,
@@ -109,6 +140,6 @@ export async function sendSupportMessage(
   );
 }
 
-export async function setSupportStatus(threadEmail: string, status: SupportStatus): Promise<void> {
-  await updateDoc(doc(db, 'support_threads', threadEmail.toLowerCase()), { status, updatedAt: new Date().toISOString() });
+export async function setSupportStatus(threadId: string, status: SupportStatus): Promise<void> {
+  await updateDoc(doc(db, 'support_threads', threadId), { status, updatedAt: new Date().toISOString() });
 }
