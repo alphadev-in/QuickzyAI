@@ -45,7 +45,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
     if (isDriver) {
       return [
-        { id: 'driver', label: 'Console', icon: <Bike className="w-5 h-5" />, action: () => setActiveTab('driver') },
+        { id: 'driver', label: 'Home', icon: <Bike className="w-5 h-5" />, action: () => setActiveTab('driver') },
         { id: 'tracking', label: 'Deliveries', icon: <Activity className="w-5 h-5" />, action: () => setActiveTab('tracking') },
         { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" />, action: onOpenAuth },
       ];

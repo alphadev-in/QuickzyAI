@@ -3,6 +3,7 @@ import {
   doc,
   setDoc,
   addDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -348,6 +349,7 @@ export async function updateOrderStatus(
     out_for_delivery: 'Dispatched & Out for Delivery',
     delivered: 'Delivery Completed & Handed Over',
     cancelled: 'Order Cancelled',
+    returned: 'Returned to Dispatch',
   };
 
   const newActivity = {
@@ -464,6 +466,11 @@ export function subscribeToDriverNotifications(
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
   await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+}
+
+// Driver removes a notification from their own list
+export async function deleteNotification(notificationId: string): Promise<void> {
+  await deleteDoc(doc(db, 'notifications', notificationId));
 }
 
 // Drivers toggle this on their own users/{uid} document. Admin only dispatches to available drivers.

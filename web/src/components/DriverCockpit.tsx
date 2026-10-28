@@ -32,6 +32,7 @@ import {
   updateOrderStatus,
   subscribeToDriverNotifications,
   markNotificationRead,
+  deleteNotification,
   setDriverAvailability,
   updateDriverLocation,
 } from '@/lib/orderService';
@@ -57,6 +58,11 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   const [proofDob, setProofDob] = useState('');
   const [proofError, setProofError] = useState('');
   const [sharingLocation, setSharingLocation] = useState(false);
+  const [section, setSection] = useState<'home' | 'location' | 'alerts' | 'parcels'>('home');
+  const [returningOrder, setReturningOrder] = useState<QuickzyOrder | null>(null);
+  const [returnReason, setReturnReason] = useState('Recipient not available');
+  const [returnNotes, setReturnNotes] = useState('');
+  const [returnError, setReturnError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [coldChecklist, setColdChecklist] = useState({
     thermalBagReady: false,
@@ -104,6 +110,39 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const removeNotification = async (id: string) => {
+    try {
+      await deleteNotification(id);
+    } catch (err: any) {
+      setAvailabilityError(err?.message || 'Could not remove notification');
+    }
+  };
+
+  const submitReturn = async () => {
+    if (!returningOrder) return;
+    setReturnError('');
+    try {
+      await updateOrderStatus(returningOrder.id, 'returned', {
+        driverName: currentUserEmail ? currentUserEmail.split('@')[0] : 'Quickzy Courier',
+        driverEmail: currentUserEmail,
+        details: `Returned to hub: ${returnReason}${returnNotes.trim() ? `. ${returnNotes.trim()}` : ''}`,
+        extra: {
+          returnInfo: {
+            reason: returnReason,
+            notes: returnNotes.trim() || null,
+            returnedAt: new Date().toISOString(),
+            returnedByEmail: currentUserEmail || null,
+          },
+        },
+      });
+      setReturningOrder(null);
+      setReturnNotes('');
+      if (onRefreshOrders) onRefreshOrders();
+    } catch (err: any) {
+      setReturnError(err?.message || 'Return could not be saved. Try again.');
+    }
+  };
 
   const openNotification = async (n: DriverNotification) => {
     if (!n.read) await markNotificationRead(n.id);
@@ -274,8 +313,32 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
         </div>
       </div>
 
-      {/* Availability and dispatch notifications */}
+      {/* Section tabs keep phone screens focused: one job at a time */}
+      <div role="tablist" aria-label="Driver sections" className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-neutral-900 border border-neutral-800 sticky top-16 z-10">
+        {([
+          { id: 'home', label: 'Home' },
+          { id: 'location', label: 'Location' },
+          { id: 'alerts', label: unreadCount > 0 ? `Alerts (${unreadCount})` : 'Alerts' },
+          { id: 'parcels', label: `Parcels (${driverParcels.length})` },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={section === tab.id}
+            onClick={() => setSection(tab.id)}
+            className={`min-h-[44px] rounded-xl text-[11px] font-black transition ${
+              section === tab.id ? 'bg-emerald-500 text-neutral-950' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Availability, live location and dispatch notifications, one section at a time */}
       <div className="bg-neutral-900 rounded-3xl p-6 border border-neutral-800 space-y-4">
+        {section === 'home' && (<>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Availability</p>
@@ -297,8 +360,10 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
           </button>
         </div>
         {availabilityError && <p className="text-xs text-red-400">{availabilityError}</p>}
+        </>)}
 
-        <div className="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {section === 'location' && (<>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Live location</p>
             <p className="text-sm text-white">
@@ -324,7 +389,9 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
           </button>
         </div>
 
-        <div className="pt-4 border-t border-neutral-800 space-y-2">
+        </>)}
+        {section === 'alerts' && (<>
+        <div className="space-y-2">
           <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
             {unreadCount > 0 ? <BellRing className="w-3.5 h-3.5 text-amber-400" /> : <Bell className="w-3.5 h-3.5" />}
             Notifications {unreadCount > 0 && <span className="text-amber-400">({unreadCount} new)</span>}
@@ -333,8 +400,8 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
             <p className="text-xs text-neutral-500">No notifications yet. You will be alerted here when an order is assigned to you.</p>
           ) : (
             notifications.slice(0, 5).map((n) => (
+              <div key={n.id} className="relative">
               <button
-                key={n.id}
                 type="button"
                 onClick={() => openNotification(n)}
                 className={`w-full text-left p-3 rounded-xl border text-xs transition ${
@@ -345,11 +412,22 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                 <span className="block mt-0.5">{n.message}</span>
                 <span className="block mt-1 text-[10px] text-neutral-500">{new Date(n.createdAt).toLocaleString('en-GB')}</span>
               </button>
+              <button
+                type="button"
+                onClick={() => removeNotification(n.id)}
+                className="absolute top-2 right-2 text-[10px] font-bold text-neutral-400 hover:text-red-400 px-2 py-1 rounded-lg bg-neutral-900/80"
+              >
+                Remove
+              </button>
+              </div>
             ))
           )}
         </div>
+        </>)}
       </div>
 
+      {section === 'parcels' && (
+      <div className="space-y-6">
       {/* Empty State when no assigned orders */}
       {driverParcels.length === 0 && (!activeTrip || activeTrip.waypoints.length === 0) && (
         <div className="bg-neutral-900/60 rounded-3xl p-10 border border-neutral-800 text-center space-y-3">
@@ -388,7 +466,6 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                     <span className="uppercase text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
                       {parcel.type}
                     </span>
-                    <span className="text-emerald-400 font-bold">£{parcel.priceGbp.toFixed(2)}</span>
                   </div>
                   <p className="text-neutral-400 mt-1">
                     <strong className="text-neutral-300">Pickup:</strong> {parcel.pickupAddress.line1} ({parcel.pickupAddress.postcode}) ➔{' '}
@@ -403,6 +480,17 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                       className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-bold text-xs"
                     >
                       Start Delivery
+                    </button>
+                  )}
+                  {(parcel.status === 'collected' || parcel.status === 'out_for_delivery') && (
+                    <button
+                      onClick={() => {
+                        setReturnError('');
+                        setReturningOrder(parcel);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs"
+                    >
+                      Return parcel
                     </button>
                   )}
                   {parcel.status === 'out_for_delivery' && (
@@ -541,6 +629,9 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
       </div>
       )}
 
+      </div>
+      )}
+
       {/* Driver Handshake & Cold-Chain Checklist Modal */}
       {activeModalWaypointId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -646,6 +737,49 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
         </div>
       )}
 
+      {/* Return modal: parcel cannot be delivered, goes back to the hub for re-dispatch */}
+      {returningOrder && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-3xl w-full max-w-md p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-extrabold text-white">Return parcel #{returningOrder.id}</h3>
+              <p className="text-xs text-neutral-400">The parcel goes back to dispatch, and admin will send it out again.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-neutral-400 block font-semibold">Reason</label>
+              <select
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-white"
+              >
+                <option>Recipient not available</option>
+                <option>Address not found</option>
+                <option>Recipient refused</option>
+                <option>Parcel damaged</option>
+                <option>Age check failed</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <textarea
+              value={returnNotes}
+              onChange={(e) => setReturnNotes(e.target.value)}
+              placeholder="Notes for dispatch (optional)"
+              rows={3}
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-white"
+            />
+            {returnError && <p className="text-xs text-red-400">{returnError}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setReturningOrder(null)} className="flex-1 py-3 rounded-xl bg-neutral-800 text-neutral-300 font-bold text-xs">
+                Cancel
+              </button>
+              <button type="button" onClick={submitReturn} className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
+                Confirm return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Proof of Delivery Photo & Handover Modal */}
       {deliveryProofModalOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
@@ -718,6 +852,7 @@ export const DriverCockpit: React.FC<DriverCockpitProps> = ({
                         <input
                           type="file"
                           accept="image/*"
+                          capture="environment"
                           className="hidden"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];

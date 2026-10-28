@@ -105,6 +105,20 @@ service cloud.firestore {
       allow update: if isAuthenticated()
         && request.auth.token.email.lower() == resource.data.recipientEmail
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && request.auth.token.email.lower() == resource.data.recipientEmail;
+    }
+
+    // Help chat: one thread per user (keyed by lowercase email). Admin can reply and resolve.
+    match /support_threads/{email} {
+      allow read: if isAuthenticated() && (request.auth.token.email.lower() == email || isAdmin());
+      allow create, update: if isAuthenticated() && (request.auth.token.email.lower() == email || isAdmin());
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (request.auth.token.email.lower() == email || isAdmin());
+        allow create: if isAuthenticated() && (
+          (request.auth.token.email.lower() == email && request.resource.data.from == 'customer') ||
+          (isAdmin() && request.resource.data.from == 'admin')
+        );
+      }
     }
 
     // Bulk Imports Collection

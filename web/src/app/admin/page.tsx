@@ -35,8 +35,11 @@ import {
   Layers,
   Sparkles,
   Wallet,
+  LifeBuoy,
 } from 'lucide-react';
 import { QuickzyOrder, OrderStatus, evaluateSameDayCutoff, ParcelPricingConfig, DEFAULT_PRICING_CONFIG, PricingCategory, PRICING_CATEGORY_LABELS, CategoryPricing, calculateDeliveryPrice } from '@/types/delivery';
+import { OrderStatusTracking } from '@/components/OrderStatusTracking';
+import { AdminSupportInbox } from '@/components/AdminSupportInbox';
 import { fetchAllOrders, updateOrderStatus, createOrder, fetchPricingConfig, savePricingConfig, assignOrderToDriver } from '@/lib/orderService';
 import { adminGrantCredit, getCreditBalancePence } from '@/lib/creditService';
 import { fetchRouteMiles } from '@/lib/routeMiles';
@@ -98,7 +101,7 @@ export default function AdminDashboardPage() {
   const [loginError, setLoginError] = useState('');
 
   // Navigation tabs: 'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing'
-  const [activeTab, setActiveTab] = useState<'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing' | 'credit'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'by_location' | 'users' | 'drivers' | 'businesses' | 'pharmone' | 'pricing' | 'credit' | 'support'>('orders');
 
   // Manual credit grants for testing bookings
   const [creditEmail, setCreditEmail] = useState('');
@@ -170,6 +173,8 @@ export default function AdminDashboardPage() {
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const [assignDriverUid, setAssignDriverUid] = useState('');
   const [dispatchError, setDispatchError] = useState('');
+  // Full customer-style order view with activity, for admin
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   // Parcel photo viewer for the orders table
   const [previewPhoto, setPreviewPhoto] = useState<{ orderId: string; src: string } | null>(null);
 
@@ -734,6 +739,18 @@ export default function AdminDashboardPage() {
               </button>
 
               <button
+                onClick={() => setActiveTab('support')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === 'support'
+                    ? 'bg-emerald-500 text-neutral-950 shadow-md'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                <LifeBuoy className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Support</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('credit')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
                   activeTab === 'credit'
@@ -759,6 +776,8 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* TAB: PRICING CONFIG */}
+            {activeTab === 'support' && <AdminSupportInbox />}
+
             {activeTab === 'credit' && (
               <div className="max-w-xl bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5">
                 <div>
@@ -1516,6 +1535,26 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="p-3.5">
                             <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setDetailOrderId(order.id)}
+                                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded text-[10px] font-bold block"
+                              >
+                                Details &amp; activity
+                              </button>
+                              {order.status === 'returned' && (
+                                <>
+                                  <span className="text-[10px] text-amber-400 font-bold block">
+                                    Returned{order.returnInfo ? `: ${order.returnInfo.reason}` : ''}
+                                  </span>
+                                  <button
+                                    onClick={() => setAssigningOrderId(order.id)}
+                                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold"
+                                  >
+                                    Re-dispatch
+                                  </button>
+                                </>
+                              )}
                               {order.status === 'booked' && (
                                 <>
                                   <button
@@ -1641,6 +1680,22 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </main>
+
+      {detailOrderId && (() => {
+        const detailOrder = orders.find((o) => o.id === detailOrderId);
+        if (!detailOrder) return null;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 overflow-y-auto" onClick={() => setDetailOrderId(null)}>
+            <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-4 max-w-4xl w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-white">Order #{detailOrder.id} · admin view</p>
+                <button type="button" onClick={() => setDetailOrderId(null)} className="text-xs text-neutral-400 hover:text-white">Close</button>
+              </div>
+              <OrderStatusTracking orders={[detailOrder]} currentUserRole="admin" onRefreshOrders={loadOrders} />
+            </div>
+          </div>
+        );
+      })()}
 
       {previewPhoto && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPreviewPhoto(null)}>

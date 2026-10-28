@@ -12,7 +12,7 @@ export function isValidLondonPostcode(postcode: string): boolean {
 // Order Types & Roles
 export type BookingType = 'pharmacy' | 'food' | 'parcel';
 export type UserRole = 'customer' | 'client' | 'admin' | 'driver';
-export type OrderStatus = 'booked' | 'collected' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type OrderStatus = 'booked' | 'collected' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'returned';
 export type TimeSlotType = 'same_day_asap' | 'scheduled';
 
 // Core Parcel Spec
@@ -102,6 +102,8 @@ export interface QuickzyOrder {
   ageCheck?: AgeCheck;
   /** Latest position shared by the driver while out for delivery */
   driverLocation?: { lat: number; lng: number; accuracy?: number; updatedAt: string };
+  /** Set when the driver could not deliver and returned the parcel to dispatch */
+  returnInfo?: { reason: string; notes: string | null; returnedAt: string; returnedByEmail: string | null };
   /** Proof captured at handover */
   deliveryProof?: { lat?: number; lng?: number; capturedAt: string };
   specialNotes?: string;

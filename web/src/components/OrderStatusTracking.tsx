@@ -262,8 +262,12 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                     <Package className="w-3.5 h-3.5 text-cyan-400" />
                   )}
                   <span className="capitalize">{order.type}</span>
-                  <span>•</span>
-                  <span className="font-bold text-emerald-400">£{order.priceGbp?.toFixed(2) || '0.00'}</span>
+                  {currentUserRole !== 'driver' && (
+                    <>
+                      <span>•</span>
+                      <span className="font-bold text-emerald-400">£{order.priceGbp?.toFixed(2) || '0.00'}</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-2 text-[11px] text-neutral-400 font-mono flex items-center justify-between">
@@ -482,7 +486,36 @@ export const OrderStatusTracking: React.FC<OrderStatusTrackingProps> = ({
                 />
               </div>
 
-              {selectedOrder.parcel && (
+              {/* Delivered location and last shared driver position */}
+              {selectedOrder.deliveryProof?.lat != null && selectedOrder.deliveryProof?.lng != null && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Delivered here · {new Date(selectedOrder.deliveryProof.capturedAt).toLocaleString('en-GB')}
+                  </p>
+                  <OpenStreetMapViewer
+                    pickupLat={selectedOrder.deliveryProof.lat}
+                    pickupLng={selectedOrder.deliveryProof.lng}
+                    pickupLabel="Delivered location"
+                    className="h-48"
+                  />
+                </div>
+              )}
+              {!selectedOrder.deliveryProof && selectedOrder.driverLocation && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                    Driver location · {new Date(selectedOrder.driverLocation.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <OpenStreetMapViewer
+                    pickupLat={selectedOrder.driverLocation.lat}
+                    pickupLng={selectedOrder.driverLocation.lng}
+                    pickupLabel="Driver"
+                    className="h-48"
+                  />
+                </div>
+              )}
+
+              {/* Manifest is for the business and the driver, not the customer */}
+              {selectedOrder.parcel && currentUserRole !== 'customer' && (
                 <div className="p-3.5 rounded-xl bg-neutral-900/60 border border-neutral-800 text-xs space-y-2">
                   <span className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">
                     Parcel Manifest

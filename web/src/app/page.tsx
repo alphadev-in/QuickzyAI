@@ -15,6 +15,7 @@ import { RouteBatcherCockpit } from '@/components/RouteBatcherCockpit';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { CustomerModule } from '@/components/CustomerModule';
 import { CreditWallet } from '@/components/CreditWallet';
+import { SupportChat } from '@/components/SupportChat';
 import { AddressItem, CustomerRecord, QuickzyOrder, UserRole } from '@/types/delivery';
 import { fetchUserAddresses, fetchAllOrders } from '@/lib/orderService';
 import { fetchCustomers } from '@/lib/customerService';
@@ -351,20 +352,7 @@ function MainApplicationContent() {
         <main key={activeTab} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6 animate-fade-in-up">
           {/* Status bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl glass-panel text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-400">Logged in as:</span>
-              <span className="font-extrabold font-mono" style={{ color: 'var(--foreground)' }}>{currentUser?.email}</span>
-              <span className="font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px]">
-                {currentUser?.role}
-              </span>
-              {currentUser?.companyName && (
-                <span className="text-[10px] text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full bg-cyan-500/10">
-                  {currentUser.companyName}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => setActiveTab('index')}
                 className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300"
@@ -552,7 +540,15 @@ function MainApplicationContent() {
         />
       )}
 
-      <Footer currentUser={currentUser} />
+      {/* Help chat for customers and drivers; admin answers in the Support tab */}
+      {currentUser && currentUser.role !== 'admin' && currentUser.email !== 'prajapatikaranc@gmail.com' && (
+        <SupportChat email={currentUser.email} />
+      )}
+
+      {/* Footer is for the website; hidden on phones so the app screens stay uncluttered */}
+      <div className="hidden lg:block">
+        <Footer currentUser={currentUser} />
+      </div>
 
       {/* Mobile Bottom Navigation Bar */}
       <MobileBottomNav
