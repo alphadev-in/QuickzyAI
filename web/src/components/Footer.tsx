@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { COOKIE_SETTINGS_EVENT } from '@/components/CookieConsent';
 import { MapPin, ShieldCheck, Heart, Sparkles } from 'lucide-react';
 
 interface FooterProps {
@@ -65,18 +66,23 @@ export const Footer: React.FC<FooterProps> = ({ currentUser }) => {
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Services</h4>
             <ul className="space-y-1.5 text-neutral-400 text-xs">
               <li>
-                <Link href="/services/pharmacy-delivery" className="hover:text-emerald-400 transition">
+                <Link href="/locations/city-of-london/pharmacy" className="hover:text-emerald-400 transition">
                   Same-Day Pharmacy Delivery
                 </Link>
               </li>
               <li>
-                <Link href="/services/food-groceries" className="hover:text-emerald-400 transition">
-                  Cold-Chain Food & Groceries
+                <Link href="/locations/shoreditch/food" className="hover:text-emerald-400 transition">
+                  Cold-Chain Food &amp; Groceries
                 </Link>
               </li>
               <li>
-                <Link href="/services/parcel-courier" className="hover:text-emerald-400 transition">
-                  London Parcel Courier & Bulk CSV
+                <Link href="/locations/canary-wharf/parcel" className="hover:text-emerald-400 transition">
+                  London Parcel Courier &amp; Bulk CSV
+                </Link>
+              </li>
+              <li>
+                <Link href="/locations/westminster/delivery" className="hover:text-emerald-400 transition">
+                  Same-Day Courier Delivery
                 </Link>
               </li>
               <li>
@@ -100,6 +106,15 @@ export const Footer: React.FC<FooterProps> = ({ currentUser }) => {
                 <Link href="/privacy" className="hover:text-emerald-400 transition">
                   Privacy Policy
                 </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new Event(COOKIE_SETTINGS_EVENT))}
+                  className="hover:text-emerald-400 transition text-left"
+                >
+                  Cookie settings
+                </button>
               </li>
               <li>
                 <Link href="/terms" className="hover:text-emerald-400 transition">

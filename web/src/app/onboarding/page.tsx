@@ -81,10 +81,10 @@ export default function OnboardingPage() {
                 <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   Step 1 of 2
                 </span>
-                <h2 className="text-2xl font-black text-white tracking-tight mt-2 flex items-center gap-2">
+                <h1 className="text-2xl font-black text-white tracking-tight mt-2 flex items-center gap-2">
                   <MapPin className="w-6 h-6 text-emerald-400" />
                   Save Your Primary London Hub
-                </h2>
+                </h1>
                 <p className="text-xs text-neutral-400 mt-1">
                   Validate your home, dispensary, restaurant, or business office postcode.
                 </p>

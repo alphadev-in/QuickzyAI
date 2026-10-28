@@ -15,7 +15,7 @@ export const LONDON_ZONES: Record<string, LocationZone> = {
   'central-london': {
     slug: 'central-london',
     title: 'Central London Same-Day Courier Delivery',
-    seoTitle: 'Same-Day Courier Central London (EC, WC, W1, SW1) | Quickzy',
+    seoTitle: 'Same-Day Courier Central London EC WC W1 SW1 | Quickzy',
     metaDescription: 'Fast 60-minute and same-day delivery courier service across Central London, City of London, Westminster, Holborn, Mayfair, Soho, and Covent Garden.',
     zone: 'Central London',
     postcodes: ['EC1', 'EC2', 'EC3', 'EC4', 'WC1', 'WC2', 'W1', 'SW1'],
@@ -27,7 +27,7 @@ export const LONDON_ZONES: Record<string, LocationZone> = {
     slug: 'north-london',
     title: 'North London Same-Day Courier Delivery',
     seoTitle: 'Rapid Same-Day Delivery North London (N, NW) | Quickzy',
-    metaDescription: 'Reliable point-to-point courier across North London: Camden, Islington, Highbury, Hampstead, Finchley, and Highgate for pharmacies, parcels, and local merchants.',
+    metaDescription: 'Reliable point-to-point courier across North London: Camden, Islington, Highbury, Hampstead, Finchley and Highgate for pharmacies, parcels and merchants.',
     zone: 'North London',
     postcodes: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N19', 'NW1', 'NW3', 'NW5', 'NW6', 'NW8'],
     neighborhoods: ['Camden Town', 'Islington & Angel', 'Hampstead', 'Highbury', 'Highgate', 'Finchley', 'St John’s Wood', 'Kentish Town', 'Muswell Hill'],
@@ -37,7 +37,7 @@ export const LONDON_ZONES: Record<string, LocationZone> = {
   'east-london': {
     slug: 'east-london',
     title: 'East London & Canary Wharf Same-Day Courier Delivery',
-    seoTitle: 'Same-Day Courier East London & Canary Wharf (E1, E14, Hackney) | Quickzy',
+    seoTitle: 'Same-Day Courier East London & Canary Wharf E1 E14 | Quickzy',
     metaDescription: 'Speedy courier dispatch in East London: Shoreditch, Hackney, Canary Wharf, Whitechapel, Stratford, and Bow. Same-day parcel and cold-chain logistics.',
     zone: 'East London & Docklands',
     postcodes: ['E1', 'E2', 'E3', 'E5', 'E8', 'E9', 'E14', 'E1W', 'E15', 'E16'],
@@ -48,7 +48,7 @@ export const LONDON_ZONES: Record<string, LocationZone> = {
   'west-london': {
     slug: 'west-london',
     title: 'West London Same-Day Courier Delivery',
-    seoTitle: 'Same-Day Courier West London (W, SW, Kensington, Chelsea) | Quickzy',
+    seoTitle: 'Same-Day Courier West London W SW Kensington | Quickzy',
     metaDescription: 'Premium same-day delivery service across West London: Kensington, Chelsea, Fulham, Notting Hill, Hammersmith, Chiswick, and Ealing.',
     zone: 'West London & Royal Boroughs',
     postcodes: ['W2', 'W6', 'W8', 'W11', 'W14', 'SW3', 'SW5', 'SW7', 'SW10', 'SW6', 'W5', 'W4'],

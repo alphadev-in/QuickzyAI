@@ -4,32 +4,20 @@ import { ArrowLeft, MapPin, CheckCircle, Navigation, Clock, ShieldCheck, ArrowRi
 import { Footer } from '@/components/Footer';
 
 import { pageMetadata } from '@/lib/seo';
+import { LONDON_AREAS } from '@/lib/londonServicePages';
 
 export const metadata = pageMetadata({
-  title: 'London Delivery Coverage & Boroughs',
-  description: 'Explore Quickzy rapid same-day delivery coverage across all 32 London boroughs and the City of London for Pharmacy, Food, and Parcel freight.',
+  title: 'London Courier Coverage — All Areas & Boroughs',
+  description: 'Same-day courier delivery across every London borough. Browse pharmacy, food, parcel and delivery services by area or postcode.',
   path: '/locations',
 });
 
-const BOROUGHS = [
-  { name: 'City of London', codes: 'EC1, EC2, EC3, EC4', zone: 'Central' },
-  { name: 'City of Westminster', codes: 'W1, WC1, WC2, SW1', zone: 'Central' },
-  { name: 'Kensington and Chelsea', codes: 'SW3, SW7, SW10, W8, W11', zone: 'West' },
-  { name: 'Camden', codes: 'NW1, NW3, NW5, WC1', zone: 'North / Central' },
-  { name: 'Islington', codes: 'N1, N5, N7, N19', zone: 'North' },
-  { name: 'Hackney & Shoreditch', codes: 'E1, E2, E5, E8, E9', zone: 'East' },
-  { name: 'Tower Hamlets & Canary Wharf', codes: 'E14, E1W, E3', zone: 'East' },
-  { name: 'Southwark', codes: 'SE1, SE15, SE16, SE22', zone: 'South' },
-  { name: 'Lambeth', codes: 'SE11, SW2, SW4, SW8, SW9', zone: 'South' },
-  { name: 'Hammersmith and Fulham', codes: 'W6, W12, W14, SW6', zone: 'West' },
-  { name: 'Wandsworth', codes: 'SW11, SW12, SW15, SW18', zone: 'South' },
-  { name: 'Greenwich', codes: 'SE3, SE10, SE18', zone: 'South East' },
-  { name: 'Lewisham', codes: 'SE4, SE8, SE13', zone: 'South East' },
-  { name: 'Barnet', codes: 'EN4, EN5, HA8, N2, N3, N12', zone: 'Outer North' },
-  { name: 'Ealing', codes: 'W5, W13, UB1, UB2', zone: 'West' },
-  { name: 'Richmond upon Thames', codes: 'TW9, TW10, SW13, SW14', zone: 'South West' },
-  { name: 'Croydon', codes: 'CR0, CR2, CR7, CR9', zone: 'South' },
-  { name: 'Brent', codes: 'HA0, HA9, NW2, NW6, NW10', zone: 'North West' },
+// Zone hubs — link to [slug] zone pages
+const ZONE_HUBS = [
+  { name: 'Central London', slug: 'central-london', codes: 'EC1–4, WC1–2, W1, SW1', zone: 'Central' },
+  { name: 'North London',   slug: 'north-london',   codes: 'N1–N22, NW1–NW11',      zone: 'North'   },
+  { name: 'East London',    slug: 'east-london',    codes: 'E1–E18, IG, RM',         zone: 'East'    },
+  { name: 'West London',    slug: 'west-london',    codes: 'W2–W14, SW3–SW10',       zone: 'West'    },
 ];
 
 export default function LocationsDirectoryPage() {
@@ -42,7 +30,7 @@ export default function LocationsDirectoryPage() {
             className="flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-emerald-400 transition"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Quickzy Main</span>
+            <span>Back to Quickzy</span>
           </Link>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
@@ -53,7 +41,14 @@ export default function LocationsDirectoryPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1 w-full space-y-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1 w-full space-y-12">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-neutral-400">
+          <Link href="/" className="hover:text-emerald-400">Home</Link>
+          <span>/</span>
+          <span className="text-emerald-400 font-semibold">Locations</span>
+        </nav>
+
         <div className="max-w-3xl space-y-4">
           <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
             London Logistics Directory
@@ -62,7 +57,7 @@ export default function LocationsDirectoryPage() {
             Same-Day Delivery Coverage in London
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-            Quickzy operates specialized zero-emission and low-emission rapid dispatch fleets connecting all 32 London Boroughs and the Square Mile. Every postcode is geocoded and validated in real time.
+            Quickzy operates rapid dispatch fleets across all 32 London boroughs and the City of London for pharmacy, food, and parcel delivery. Every postcode is geocoded and validated in real time.
           </p>
         </div>
 
@@ -86,38 +81,60 @@ export default function LocationsDirectoryPage() {
 
           <div className="p-5 rounded-2xl glass-panel space-y-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-sm font-bold text-white">Regulated & Cold-Chain</h2>
+            <h2 className="text-sm font-bold text-white">Regulated &amp; Cold-Chain</h2>
             <p className="text-xs text-neutral-400">
               Special handling bags for pharmacy therapeutics and cold-chain temperature control.
             </p>
           </div>
         </div>
 
-        {/* Boroughs Directory Grid */}
-        <div className="space-y-4 pt-6">
-          <h2 className="text-xl font-black text-white">London Boroughs & Postal Sectors</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {BOROUGHS.map((b) => (
-              <div
-                key={b.name}
-                className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:border-emerald-500/60 transition space-y-1.5"
+        {/* Zone hubs */}
+        <section aria-labelledby="zone-hubs-heading">
+          <h2 id="zone-hubs-heading" className="text-xl font-black text-white mb-4">Browse by London Zone</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {ZONE_HUBS.map((z) => (
+              <Link
+                key={z.slug}
+                href={`/locations/${z.slug}`}
+                className="p-5 rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:border-emerald-500/50 hover:bg-emerald-950/20 transition group space-y-2"
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">{b.name}</h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 font-mono">
-                    {b.zone}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-bold text-white group-hover:text-emerald-300">{z.name}</span>
                 </div>
-                <p className="text-xs text-neutral-400">
-                  Postal codes: <span className="font-mono text-emerald-400">{b.codes}</span>
-                </p>
-                <p className="text-[11px] text-neutral-500 pt-1">
-                  Active same-day coverage for Pharmacy, Food & Parcels.
-                </p>
-              </div>
+                <p className="text-xs text-neutral-400 font-mono">{z.codes}</p>
+                <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+                  <span>View zone</span>
+                  <ArrowRight className="w-3 h-3" />
+                </div>
+              </Link>
             ))}
           </div>
-        </div>
+        </section>
+
+        {/* All neighbourhood areas A–Z */}
+        <section aria-labelledby="areas-heading">
+          <h2 id="areas-heading" className="text-xl font-black text-white mb-4">All London Delivery Areas</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {LONDON_AREAS.map((area) => (
+              <Link
+                key={area.slug}
+                href={`/locations/${area.slug}`}
+                className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:border-emerald-500/50 hover:bg-emerald-950/20 transition group flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-sm font-bold text-white group-hover:text-emerald-300">{area.name}</p>
+                  <p className="text-xs text-neutral-400 font-mono">{area.postcode} · {area.borough}</p>
+                </div>
+                <div className="flex flex-col gap-1 text-right">
+                  {(['delivery','parcel','pharmacy','food'] as const).map((s) => (
+                    <span key={s} className="text-[10px] text-neutral-500 group-hover:text-emerald-500 capitalize">{s}</span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* Call to action */}
         <div className="p-8 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/40 border border-neutral-800 text-center space-y-4">
@@ -132,6 +149,9 @@ export default function LocationsDirectoryPage() {
             >
               <span>Launch Booking Console</span>
               <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-neutral-700 hover:border-neutral-500 text-white font-bold text-xs">
+              Create Business Account
             </Link>
           </div>
         </div>

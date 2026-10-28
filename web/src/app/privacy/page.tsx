@@ -57,6 +57,14 @@ export default function PrivacyPage() {
             We process your personal information strictly for legitimate courier transit execution, order tracking, real-time dispatcher coordination, regulatory compliance (such as restricted item transportation checks), and fraud prevention.
           </p>
 
+          <h2 className="text-lg font-bold text-white pt-4">Cookies & Analytics</h2>
+          <p>
+            Essential cookies keep you signed in and remember your booking progress. We also store your cookie choice in a
+            cookie named quickzy_consent for 12 months. Firebase Analytics (Google) is loaded only if you click Accept all,
+            and it records anonymous page visits to help us improve the service. You can change your choice at any time
+            using Cookie settings in the footer.
+          </p>
+
           <h2 className="text-lg font-bold text-white pt-4">4. Storage & Security</h2>
           <p>
             All address and order records are stored encrypted in transit and at rest using modern enterprise cloud infrastructure with EU/UK data residency. We retain dispatch records only for the duration required by UK tax, transport, and delivery verification laws.

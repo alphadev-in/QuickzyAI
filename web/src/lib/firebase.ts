@@ -9,6 +9,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "allshoplocaluk.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "980182296141",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:980182296141:web:f61471ea6cfd455ad1de04",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-0CLKT4Z35Y",
 };
 
 // Initialize Firebase client safely on Next.js

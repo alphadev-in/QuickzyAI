@@ -1,7 +1,7 @@
 import { pageMetadata } from '@/lib/seo';
 
 export const metadata = pageMetadata({
-  title: 'Privacy Policy',
+  title: 'Privacy Policy and Data Protection',
   description: 'How Quickzy collects, uses and protects personal data for London same-day courier bookings.',
   path: '/privacy',
 });

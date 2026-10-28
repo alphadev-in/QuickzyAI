@@ -6,13 +6,13 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { PaymentMethod } from '@/types/delivery';
 import { spendCredit } from '@/lib/creditService';
 import { useTheme } from '@/context/ThemeContext';
-import { CreditCard, Wallet, Loader2, ShieldAlert, Lock, Ticket } from 'lucide-react';
+import { CreditCard, Wallet, Loader2, ShieldAlert, Lock } from 'lucide-react';
 
 export interface PaidResult {
   /** Card is the only method for bookings and top-ups. 'credit' only when allowCredit is enabled. */
   method: PaymentMethod;
   reference: string;
-  /** Amount actually charged to the card, after any coupon */
+  /** Amount charged to the card */
   amountPence: number;
   /** Credit granted (top-ups). Equals amountPence for bookings. */
   creditPence: number;
@@ -25,8 +25,6 @@ interface CheckoutPanelProps {
   customerEmail: string;
   /** 'order' pays for bookings; 'credit_topup' buys credit for the account balance. */
   purpose: 'order' | 'credit_topup';
-  /** Top-ups only: Stripe promotion code, recalculated on the server */
-  promotionCode?: string;
   /**
    * Pay bookings from the credit balance. Off: card is the only payment method.
    * Kept so it can be switched back on without rewriting the flow.
@@ -89,7 +87,6 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
   description,
   customerEmail,
   purpose,
-  promotionCode,
   allowCredit = false,
   creditBalancePence,
   disabled,
@@ -114,7 +111,7 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
     [clientSecret, isLight]
   );
 
-  // Asks the server for a PaymentIntent. For top-ups the server applies the coupon and returns the charge.
+  // Asks the server for a PaymentIntent for the amount shown.
   const startCardPayment = async () => {
     setError('');
     setBusy(true);
@@ -127,7 +124,6 @@ export const CheckoutPanel: React.FC<CheckoutPanelProps> = ({
           customerEmail,
           purpose,
           description,
-          promotionCode: purpose === 'credit_topup' ? promotionCode || undefined : undefined,
         }),
       });
       const json = await res.json();
@@ -261,7 +257,6 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
-  const discounted = creditPence !== chargePence;
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,14 +311,6 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
 
   return (
     <form onSubmit={handleConfirm} className="space-y-3 p-4 rounded-xl bg-neutral-950 border border-neutral-800 animate-scale-in" style={{ background: 'var(--surface, #111113)', borderColor: 'var(--card-border)' }}>
-      {discounted && (
-        <div className="flex items-center justify-between text-xs px-1">
-          <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-            <Ticket className="w-3.5 h-3.5" /> Coupon applied
-          </span>
-          <span className="text-neutral-400 line-through">{formatGbp(creditPence)}</span>
-        </div>
-      )}
       {/* Card only: wallet buttons are hidden here; other methods are switched off in the Dashboard */}
       <PaymentElement options={{ wallets: { applePay: 'never', googlePay: 'never' } }} />
       <div className="flex gap-2">

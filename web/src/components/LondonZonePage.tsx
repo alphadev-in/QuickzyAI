@@ -2,42 +2,51 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, CheckCircle, Clock, ShieldCheck, ArrowRight, Truck, Box } from 'lucide-react';
 import { Footer } from '@/components/Footer';
-import { notFound } from 'next/navigation';
+import { LocationZone } from '@/lib/londonZones';
+import { SITE_URL } from '@/lib/seo';
 
-import { LONDON_ZONES } from '@/lib/londonZones';
-import { pageMetadata } from '@/lib/seo';
+// Broad zone page (Central / North / East / West London), rendered by app/locations/[areaSlug]
+export function LondonZonePage({ slug, location }: { slug: string; location: LocationZone }) {
 
-export async function generateStaticParams() {
-  return Object.keys(LONDON_ZONES).map((slug) => ({ slug }));
-}
+  const pageUrl = `${SITE_URL}/locations/${slug}`;
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const location = LONDON_ZONES[slug];
-  if (!location) {
-    return { title: 'Location not found', robots: { index: false, follow: true } };
-  }
-  return pageMetadata({
-    title: location.seoTitle.replace(/\s*\|\s*Quickzy$/, ''),
-    description: location.metaDescription,
-    path: `/locations/${slug}`,
-  });
-}
-
-export default async function LondonLocationPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const location = LONDON_ZONES[slug];
-
-  if (!location) {
-    notFound();
-  }
+  // JSON-LD: BreadcrumbList + Service structured data
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home',      item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: 'Locations', item: `${SITE_URL}/locations` },
+          { '@type': 'ListItem', position: 3, name: location.zone, item: pageUrl },
+        ],
+      },
+      {
+        '@type': 'Service',
+        name: `Same-Day Courier — ${location.zone}`,
+        url: pageUrl,
+        description: location.metaDescription,
+        provider: {
+          '@type': 'LocalBusiness',
+          '@id': `${SITE_URL}/#organization`,
+          name: 'Quickzy',
+          url: SITE_URL,
+        },
+        areaServed: {
+          '@type': 'Place',
+          name: `${location.zone}, London`,
+        },
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className="border-b border-neutral-900 bg-neutral-900/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link
@@ -58,12 +67,12 @@ export default async function LondonLocationPage({
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1 w-full space-y-10">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-neutral-400">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-neutral-400">
           <Link href="/" className="hover:text-emerald-400">Home</Link>
-          <span>/</span>
+          <span aria-hidden="true">/</span>
           <Link href="/locations" className="hover:text-emerald-400">Locations</Link>
-          <span>/</span>
-          <span className="text-emerald-400 font-semibold">{location.title}</span>
+          <span aria-hidden="true">/</span>
+          <span className="text-emerald-400 font-semibold" aria-current="page">{location.zone}</span>
         </nav>
 
         {/* Hero Banner */}
